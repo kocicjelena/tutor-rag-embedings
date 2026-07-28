@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rag-backend"
+version = "0.1.0"
+description = "LLM / RAG / MCP showcase — local SQLite vectors, user-selectable Ollama or Claude"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "sqlmodel>=0.0.22",
+    "aiosqlite>=0.20.0",
+    "sqlite-vec>=0.1.9",
+    "pydantic-settings>=2.4.0",
+    "pyjwt>=2.9.0",
+    "bcrypt>=4.1,<5",
+    "anthropic>=0.69.0",
+    "ollama>=0.4.0",
+    "mcp>=1.2.0",
+    "pypdf>=4.0.0",
+    "python-multipart>=0.0.9",
+    "tenacity>=9.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "coverage>=7.0.0",
+    "pyright>=1.1.400",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+# ──────────────────────────── pyright ────────────────────────────
+# Strict, but scoped to `app/` and `tests/` — `related/` holds reference
+# projects and a checked-in virtualenv, and must never be type-checked.
+[tool.pyright]
+include = ["app", "tests"]
+exclude = [
+    "**/.*",
+    ".venv",
+    "related",
+    "web",
+    "**/__pycache__",
+    "**/node_modules",
+]
+typeCheckingMode = "strict"
+pythonVersion = "3.11"
+reportMissingTypeStubs = false
+# SQLModel/SQLAlchemy build column attributes dynamically at class-definition
+# time via a descriptor protocol pyright cannot follow. Without these three,
+# every model field read reports as unknown.
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]

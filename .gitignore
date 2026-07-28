@@ -1,0 +1,45 @@
+# ─── Secrets ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ─── Reference projects ────────────────────────────────────
+# related/ contains a checked-in virtualenv and (until rotated) live
+# credentials in rag-fastapi-main/.env. Reference material only — never commit.
+related/
+
+# ─── Local database ────────────────────────────────────────
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ─── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# ─── Node / Next.js ────────────────────────────────────────
+node_modules/
+.next/
+out/
+npm-debug.log*
+.vercel
+
+# ─── Editors / OS ──────────────────────────────────────────
+.DS_Store
+.idea/
+*.swp
+
+docs/
