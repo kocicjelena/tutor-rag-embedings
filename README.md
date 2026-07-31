@@ -109,6 +109,7 @@ Runs on `http://localhost:8000`. Interactive docs at `/docs`.
 | `POST` | `/api/v1/query/stream` | ✓ | Ask a question, get the answer as it is written |
 | `POST` | `/api/v1/query/agent` | ✓ | Let the model choose which tools to run, and watch it work |
 | `POST` | `/api/v1/tutor/teach` | ✓ | The tutor explains a topic, streamed |
+| `POST` | `/api/v1/tutor/learn` | ✓ | Push pieces of learning as they happen — embedded on arrival, returns the model's state |
 | `POST` | `/api/v1/tutor/interactions` | ✓ | Save one lesson into your model |
 | `POST` | `/api/v1/tutor/recall` | ✓ | Answer from your own lessons only |
 | `GET` | `/api/v1/tutor/stats` | ✓ | How many lessons and topics your model holds |
@@ -140,6 +141,7 @@ login token stays on the server and never reaches the browser.
 | `GET` | `/api/providers` | `/providers/` |
 | `GET` | `/api/status` | `/status/` — what works, checked at request time |
 | `POST` | `/api/tutor/teach` | `/tutor/teach` |
+| `POST` | `/api/tutor/learn` | `/tutor/learn` — the upward channel |
 | `POST` | `/api/tutor/interactions` | `/tutor/interactions` |
 | `POST` | `/api/tutor/recall` | `/tutor/recall` |
 | `GET` | `/api/tutor/stats` | `/tutor/stats` |
@@ -160,13 +162,14 @@ Stated plainly, because some of it is visible in the app and would otherwise loo
 Also missing, and planned: Ollama tool calling, a sign-up screen with federated
 login, rate limiting, and deployment.
 
-**The largest gap is not on that list, because you cannot see it.** The browser
-store and the backend pipeline are not joined up yet. The design is that the
-front end drives the work rather than merely displaying it: results are produced
-by asynchronous generators, piped into coroutines that process them, and the
-outcome is held in React context — so the context is where a learning model is
-assembled and refined. Today each half exists on its own: the backend
-streams and the store records, but the loop between them is not closed.
+**The channel between the browser and the model is built, and nothing calls it
+yet.** The design is that the front end drives the work rather than merely
+displaying it: pieces of learning travel up as they happen, each is embedded on
+arrival, and what comes back is the state of the model — held in React context,
+which is where the model is assembled. All of that exists — `POST /tutor/learn`,
+the `learning_stream` sink, the `model` slice and its `learn()` action — but no
+page has been wired to it, so today the tutor still records a finished exchange
+afterwards. Connecting the two is the next piece of work, not a missing one.
 
 **And the corpus is not yet a tool.** What you are taught is searchable material
 now; the intention is that your own model becomes something a model can *call* —

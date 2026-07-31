@@ -40,13 +40,17 @@ identifiers kept strictly apart. The vector layer gained streaming ingestion
 through an async generator and a second, pluggable embedding provider. `/status`
 reports what the app can do by probing rather than by claiming. The browser now
 has a React context store on Jelena's own pattern, with the streaming answer
-drained by one action inside the provider. The Docker path, both GitHub
-workflows and a `compose.yaml` for this laptop are written. There are 187 tests,
+drained by one action inside the provider. The channel from the browser to the model is
+built: pieces of learning travel up as they happen, are embedded on arrival and
+persist in SQLite, and the state comes back into a context slice — with the
+search index deliberately untouched. The Docker path, both GitHub workflows and
+a `compose.yaml` for this laptop are written. There are 187 tests,
 no network needed, with `pyright` and `tsc` clean.
 
 ## To do
 
-Run it in Docker here and watch it work — nothing in that path has ever been
+Wire a page to the learning channel — it is built and nothing calls it yet.
+Run it in Docker here and watch it work; nothing in that path has ever been
 executed. Then NextAuth in front of the existing FastAPI login, with Cognito as
 a second provider once the pool exists. Then the database work in one pass:
 backup and restore, the persistence decision, and progress reporting for
