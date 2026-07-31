@@ -202,6 +202,55 @@ Docker path has been executed yet.
 
 ---
 
+## Creating the Space — it must be **Docker**, and nothing else
+
+Learned the hard way on 2026-07-31: the first Space was created from a React
+template, and a *Static* Space refuses to build with **"Static space builds
+require credits."** Docker on CPU Basic is free; Static is not. There is no
+adapting one into the other — delete it and make a new one.
+
+**Delete the wrong one:** Space → **Settings** → bottom of the page → *Delete
+this space* → type its full name (`kjelenak/my_tutor`) to confirm.
+
+**Create the right one** at <https://huggingface.co/new-space>:
+
+| Field | Value |
+|---|---|
+| Owner | `kjelenak` |
+| Space name | `my_tutor` — **keep this exact name**, or `HF_SPACE` in `deploy-space.yml` has to change with it |
+| License | anything (`mit`) |
+| **Space SDK** | **Docker** → template **Blank**. Not Static, not React, not Gradio, not Streamlit |
+| Hardware | **CPU basic · 2 vCPU · 16 GB · FREE** |
+| Visibility | **Public** |
+
+Then **add no files by hand.** The Space stays empty until the deploy workflow
+pushes to it, and that push includes the `README.md` built from
+`deploy/space-README.md`, whose front matter (`sdk: docker`, `app_port: 7860`)
+is what tells Hugging Face how to run the container.
+
+**Configure it, in this order:**
+
+1. **Trusted publisher** — Space → Settings → *Trusted Publishers* → Add →
+   provider **GitHub Actions**, `repository` = `kocicjelena/tutor-rag-embedings`
+   (owner/name, one `d` in `embedings`), leave `branch` and `workflow` empty.
+2. **Secrets** — Space → Settings → *Variables and secrets*. These four, because
+   the container refuses to start without them:
+
+   | Secret | Value |
+   |---|---|
+   | `SECRET_KEY` | new random — `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
+   | `IDENTITY_PEPPER` | a second, different random string from the same command |
+   | `FIRST_SUPERUSER` | the email you will sign in with |
+   | `FIRST_SUPERUSER_PASSWORD` | a real password, not `changethis` |
+
+   Do **not** add `ANTHROPIC_API_KEY`. `ENVIRONMENT=production`,
+   `ALLOW_APP_KEY_FALLBACK=false` and `USER_ANTHROPIC_KEYS=true` are already
+   baked into the `Dockerfile` — visitors bring their own key.
+3. **Deploy** — GitHub → Actions → *Deploy to Hugging Face Space* → Run
+   workflow.
+4. **Watch the Space's own build log**, not GitHub's: Space → **Logs** →
+   *Build*.
+
 ## The first deployment — 2026-07-31, step by step
 
 Written while doing it, because it happens once and the next time may be years
