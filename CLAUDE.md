@@ -181,12 +181,13 @@ cd web && npm run dev            # UI on :3000
 
 ## Docs map
 
-**They live in `.claude/rules/`, not `docs/` — changed 2026-07-31 by Jelena.** A
-repository should read the way any GitHub repository reads: `README.md` is for
-whoever arrives, and the working documents sit beside the tooling that consumes
-them. They are still tracked in git, deliberately: a session has to be able to
-pick them up, and the last time they were outside git nothing carried forward.
-**Do not recreate `docs/`** — what is left there is hers and untracked.
+**They live in `.claude/rules/`, and only `SUMMARY.md` is tracked** — Jelena's
+decision, 2026-07-31, in two steps: out of `docs/` first, then out of git
+entirely. A repository carries the code and `README.md`; the record of how the
+work was done stays on her machine. Everything below is on disk here and
+gitignored, so read and update it exactly as before — but **do not recreate
+`docs/`**, and do not re-add these files to git. Keep `SUMMARY.md` current when
+the set changes; it is the only one a clone will ever see.
 
 `.claude/rules/API.md` every route and page, available vs planned ·
 `.claude/rules/PLAN.md` architecture, **deployment**, and the model export format ·

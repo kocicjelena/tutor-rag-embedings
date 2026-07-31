@@ -242,14 +242,11 @@ uv run pyright     # strict type checking
 **This README is the documentation.** Everything a user or a developer needs to
 run, use and extend the app is on this page.
 
-Behind it, in `.claude/rules/`, are the working documents — the reasoning, the
-plans, the decisions taken and refused, and the session handoff. They are kept
-in the repository on purpose: they are how the project explains *why* it is
-built this way, and they are what the next working session reads first. Start
-with `MANUAL.md` (user and developer guide, including the Docker workflow),
-`API.md` (every route), `MCP.md` (the tool layer), `AUTH.md` (identity and
-keys), `PLAN.md` (architecture and deployment), `DECISIONS.md` (what was
-deliberately *not* built), and `TODO.md` (what is next).
+There is a second layer — the plans, the reasoning, the decisions taken and the
+ones deliberately refused — and it is deliberately **not** in this repository. A
+repository carries the code and the guide to running it; the record of how the
+work was done is a working document, not a published one.
+`.claude/rules/SUMMARY.md` is the map of it, and the only part kept here.
 
 ## What I am proud of
 

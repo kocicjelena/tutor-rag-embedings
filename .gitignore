@@ -66,6 +66,16 @@ npm-debug.log*
 #                     session to execute, so read it when the task is her laptops
 docs/
 docs/jelena/
+
+# ─── The working documents ─────────────────────────────────
+# Jelena's decision, 2026-07-31: the repository carries the code and README.md,
+# and nothing about how the work was done. The documents live in
+# `.claude/rules/` on her machine; only the map of them is tracked.
+#
+# Known cost, accepted: a fresh clone has no reasoning in it, so the machine
+# holding these files is the one that can continue the work.
+.claude/rules/*
+!.claude/rules/SUMMARY.md
 # Infrastructure plans for Jelena's own machines — her home network, what runs
 # on it, how it is exposed. Private, but NOT off-limits: unlike docs/jelena/
 # these were written for a future session to execute, so they must stay
