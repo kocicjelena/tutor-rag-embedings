@@ -219,8 +219,21 @@ into `main`, `main` pushed.
 step 3 explains what happens if the base image is not public yet.
 
 **Step 1 — build the Ollama base image.**
-GitHub → **Actions** → *Ollama base image* → **Run workflow** (leave the two
-inputs alone). Takes 10–20 minutes.
+Open this link — it *is* the workflow page, no hunting through tabs:
+
+<https://github.com/kocicjelena/tutor-rag-embedings/actions/workflows/ollama-base.yml>
+
+On the right of the blue *"This workflow has a workflow_dispatch event
+trigger"* bar there is a grey **Run workflow** button. Click it → a small panel
+opens with `Branch: main` and two text boxes already filled
+(`v0.32.5`, `nomic-embed-text`) → **leave them alone** → click the green **Run
+workflow** inside the panel. Reload the page after a few seconds and a new run
+appears at the top. Takes 10–20 minutes.
+
+*If the button is not there:* you are on the Actions **landing** page rather
+than this workflow's page — the button only exists on the workflow's own page.
+*If the whole Actions tab says workflows are disabled:* Settings → Actions →
+General → *Allow all actions*, then reload.
 *Proves it:* the run is green, and the log line `final image: … MB` appeared.
 The last step also verified the image can really embed — if that failed, nothing
 was pushed, which is deliberate.
@@ -228,8 +241,12 @@ was pushed, which is deliberate.
 Re-run with the previous tag in the input box.
 
 **Step 2 — make the package public.**
-GitHub → your profile → **Packages** → `mcp-py-ollama` → **Package settings** →
-**Change visibility** → **Public**.
+The package only exists once step 1 is green. Then:
+
+<https://github.com/users/kocicjelena/packages/container/package/mcp-py-ollama>
+
+→ **Package settings** (right-hand column) → scroll to *Danger Zone* →
+**Change visibility** → **Public** → type the package name to confirm.
 *Proves it:* opening
 `https://github.com/kocicjelena/tutor-rag-embedings/pkgs/container/mcp-py-ollama`
 in a private browser window shows the package.
