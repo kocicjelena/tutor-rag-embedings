@@ -6,6 +6,7 @@ import type {
   ModelType,
 } from "./ModelType";
 import type { ProvidersType } from "./ProvidersType";
+import type { SessionType } from "./SessionType";
 import type { StreamKind, StreamType } from "./StreamType";
 
 /**
@@ -19,8 +20,7 @@ export interface IContextState {
   stream: StreamType;
   model: ModelType;
   providers: ProvidersType;
-  /** Null while unknown — the app cannot tell "signed out" from "not asked yet" without it. */
-  signedIn: boolean | null;
+  session: SessionType;
 }
 
 export interface IContextAction {
@@ -107,6 +107,15 @@ export interface IContextAction {
   /** Sign out, and forget everything that belonged to the session. */
   signOut: () => Promise<void>;
 }
+
+/** The whole context value, as the Provider supplies it. */
+export interface IContext {
+  state: IContextState;
+  actions: IContextAction;
+}
+
+export type SessionAction =
+  | { type: "SET_SIGNED_IN"; payload: { signedIn: boolean } };
 
 export type ProvidersAction =
   | { type: "PROVIDERS_LOADING" }

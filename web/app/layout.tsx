@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { GlobalProvider } from "@/context/GlobalContext";
+import { Provider } from "@/context/GlobalContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,12 +16,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       {/*
-        One provider, mounted once, above every page. `layout.tsx` stays a Server Component —
-        GlobalProvider is the "use client" boundary, so pages that never touch the store are not
-        dragged into the client bundle by it.
+        One provider, mounted once, above every page — the same import Jelena's other projects
+        use (`import { Provider } from '@/globalx/GlobalContext'`). `layout.tsx` stays a Server
+        Component: Provider is the "use client" boundary, so pages that never touch the store
+        are not dragged into the client bundle by it.
       */}
       <body>
-        <GlobalProvider>{children}</GlobalProvider>
+        <Provider>{children}</Provider>
       </body>
     </html>
   );

@@ -1,59 +1,89 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useReducer, useRef } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useReducer,
+  useRef,
+  type ReactNode,
+} from "react";
+import combineReducers from "react-combine-reducers";
 import actionTypes from "@/types/interfaces/actionTypes";
-import type { IContextAction, IContextState } from "@/types/interfaces/ContextType";
+import type { IContext, IContextAction, IContextState } from "@/types/interfaces/ContextType";
 import type { LearningPiece } from "@/types/interfaces/ModelType";
 import type { StreamKind } from "@/types/interfaces/StreamType";
-import type { StreamEvent } from "@/lib/types";
+import type { ProvidersPayload, StreamEvent } from "@/lib/types";
 import { readEventStream } from "@/lib/stream";
 import { initialModel, modelReducer } from "@/reducers/ModelReducer";
 import { initialProviders, providersReducer } from "@/reducers/ProvidersReducer";
+import { initialSession, sessionReducer } from "@/reducers/SessionReducer";
 import { initialStream, streamReducer } from "@/reducers/StreamReducer";
-import type { ProvidersPayload } from "@/lib/types";
 
 /**
- * The global store: React Context + useReducer, with the value split into `{ state, actions }`.
+ * The global store — the shape Jelena runs in her other projects, written the same way here.
  *
- * The shape is Jelena's, copied from ~/multichain-main/my/context/GlobalContext.tsx: a manual
- * root reducer, `useCallback` actions, two contexts so a component that only dispatches does not
- * re-render when state moves.
+ * The reference is `related/internal-AI-workloads-nextjs-main/globalx/GlobalContext.tsx`, and
+ * this file follows it deliberately rather than approximately:
  *
- * Right now it holds one slice, `stream`. Adding another means: a constant in actionTypes, a
- * XxxType + initialXxx, a XxxReducer, one line in `rootReducer`, one line in `initialState`, a
- * useCallback here, and the fn added to the `actions` useMemo and its dependency array.
+ *   - `combineReducers({ slice: [reducer, initial] })` from `react-combine-reducers`, so a
+ *     new slice is one line here and one file in `reducers/`;
+ *   - **one** context carrying `{ state, actions }`, with no-op action defaults, so a
+ *     component rendered outside the Provider degrades instead of throwing;
+ *   - `useCallback` for every action, gathered into a `useMemo`d value;
+ *   - `useContextState()` / `useContextActions()` as the only way anything reads it.
  *
- * <GlobalProvider> is mounted once in app/layout.tsx, so every page has it.
+ * That last pair is the point: import them in any component and the whole store is available
+ * with no props threaded through the tree.
+ *
+ * Adding a slice: a constant in `actionTypes`, an `XxxType` + `initialXxx`, an `XxxReducer`,
+ * one line in `combineReducers`, a `useCallback` here, and the function added to the value
+ * and its dependency array.
+ *
+ * <Provider> is mounted once in app/layout.tsx, so every page has it.
  */
 
-const initialState: IContextState = {
-  stream: initialStream,
-  model: initialModel,
-  providers: initialProviders,
-  signedIn: null,
+const [mainReducer, initialState] = combineReducers<IContextState>({
+  stream: [streamReducer, initialStream],
+  model: [modelReducer, initialModel],
+  providers: [providersReducer, initialProviders],
+  session: [sessionReducer, initialSession],
+});
+
+/**
+ * The default value: real state, and actions that do nothing.
+ *
+ * Not `null`. A component rendered outside the Provider then reads an empty store rather
+ * than crashing on a null dereference — which matters most in a Next.js app, where a stray
+ * server render or a test harness can mount a component without its tree.
+ */
+const initialContext: IContext = {
+  state: initialState,
+  actions: {
+    runStream: async () => ({ text: "", provider: null, model: null }),
+    beginStream: () => undefined,
+    appendChunk: () => undefined,
+    setStreamProvider: () => undefined,
+    endStream: () => undefined,
+    failStream: () => undefined,
+    clearStream: () => undefined,
+    startLearning: () => "",
+    learn: async () => undefined,
+    syncModel: async () => undefined,
+    clearModel: () => undefined,
+    loadProviders: async () => undefined,
+    setProvider: () => undefined,
+    setModel: () => undefined,
+    checkSession: async () => undefined,
+    signOut: async () => undefined,
+  },
 };
 
-// Manual root reducer — each slice sees every action and ignores what isn't its own.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rootReducer(state: IContextState, action: any): IContextState {
-  return {
-    stream: streamReducer(state.stream, action),
-    model: modelReducer(state.model, action),
-    providers: providersReducer(state.providers, action),
-    // A single value rather than a slice of its own: one boolean with one action does not
-    // earn a file, and pretending otherwise is how a store becomes ceremony.
-    signedIn:
-      action.type === actionTypes.SET_SIGNED_IN
-        ? (action.payload?.signedIn ?? null)
-        : state.signedIn,
-  };
-}
+export const Context = createContext<IContext>(initialContext);
 
-const StateContext = createContext<IContextState | null>(null);
-const ActionsContext = createContext<IContextAction | null>(null);
-
-export function GlobalProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(rootReducer, initialState);
+export const Provider = ({ children }: { children: ReactNode }) => {
+  const [state, dispatch] = useReducer(mainReducer, initialState);
 
   // ── stream actions ──
 
@@ -347,26 +377,30 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     seqRef.current = 0;
   }, []);
 
-  const actions = useMemo<IContextAction>(
+  const value = useMemo<IContext>(
     () => ({
-      runStream,
-      beginStream,
-      appendChunk,
-      setStreamProvider,
-      endStream,
-      failStream,
-      clearStream,
-      startLearning,
-      learn,
-      syncModel,
-      clearModel,
-      loadProviders,
-      setProvider,
-      setModel,
-      checkSession,
-      signOut,
+      state,
+      actions: {
+        runStream,
+        beginStream,
+        appendChunk,
+        setStreamProvider,
+        endStream,
+        failStream,
+        clearStream,
+        startLearning,
+        learn,
+        syncModel,
+        clearModel,
+        loadProviders,
+        setProvider,
+        setModel,
+        checkSession,
+        signOut,
+      },
     }),
     [
+      state,
       runStream,
       beginStream,
       appendChunk,
@@ -386,28 +420,15 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return (
-    <StateContext.Provider value={state}>
-      <ActionsContext.Provider value={actions}>{children}</ActionsContext.Provider>
-    </StateContext.Provider>
-  );
-}
+  return <Context.Provider value={value}>{children}</Context.Provider>;
+};
 
 /**
- * `Provider` is the name this pattern uses in Jelena's other projects
- * (`~/mcp-py/related/internal-AI-workloads-nextjs-main/globalx`), so both spellings work and
- * an import copied from there lands correctly.
+ * The two hooks every component uses. Import either one and the store is there — no props,
+ * no wiring, nothing to pass down.
  */
-export { GlobalProvider as Provider };
+export const useContextState = (): IContextState => useContext(Context).state;
+export const useContextActions = (): IContextAction => useContext(Context).actions;
 
-export function useContextState(): IContextState {
-  const ctx = useContext(StateContext);
-  if (!ctx) throw new Error("useContextState must be used inside <GlobalProvider>.");
-  return ctx;
-}
-
-export function useContextActions(): IContextAction {
-  const ctx = useContext(ActionsContext);
-  if (!ctx) throw new Error("useContextActions must be used inside <GlobalProvider>.");
-  return ctx;
-}
+/** The older name for the Provider, kept so an existing import does not break. */
+export { Provider as GlobalProvider };

@@ -17,7 +17,8 @@ export default function Home() {
   // in, the provider catalogue, and which provider and model the reader chose. Only what
   // belongs to *this page* stays local — the sources and the tool trace are panels beside
   // the answer, not facts about the app.
-  const { signedIn, providers } = useContextState();
+  const { session, providers } = useContextState();
+  const signedIn = session.signedIn;
   const { checkSession, loadProviders, setProvider, setModel, signOut } =
     useContextActions();
 
