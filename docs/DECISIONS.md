@@ -86,16 +86,16 @@ was considered for them and left out.
 | **Per-user document privacy** | Deliberate: authorisation is a later session. Do not build speculatively | ⏸ |
 | **Seed-on-startup** | Needed before the Space is worth visiting — an empty demo shows nothing | ⏸ |
 
-## Things built but never run
+## Not in this file: things that are built and simply untested
 
-Worth their own section, because "written and typed" reads like "working" in a
-list of completed items, and it is not the same thing.
+There used to be a "built but never run" table here. It has moved to
+`docs/CONTINUE.md` → **"Built and alive — but not yet run"**, because in a
+document titled *Decided not to build* it read as a fourth category of
+abandonment. It is the opposite: the sentence-transformers provider and the
+whole Docker path are **shipped, committed and required**. They have simply
+never been executed on this machine.
 
-| | |
-|---|---|
-| **The sentence-transformers embedding provider** | Written, typed, reviewed. The extra is ~2 GB of torch and is not installed here, so it has never executed. Treat as untested until someone runs `uv sync --extra local-embed` and uploads a document |
-| **The Dockerfile, `start.sh`, both workflows, the base image** | No Docker on this machine. Reasoned and dry-run where possible — the `.dockerignore` was simulated against the real tree, and the `start.sh` smoke test found a genuine `set -e` bug — but nothing has been built. The first `docker build` will find something |
-| **`docs/ops/LAPTOP8.md`, `LAPTOP4.md`** | Plans, not runs. Both open with a "facts to establish" step because they assume things about those machines that cannot be checked from here |
+Nothing on this page is about them.
 
 ## Reversed decisions
 

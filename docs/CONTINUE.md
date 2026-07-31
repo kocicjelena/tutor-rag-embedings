@@ -225,6 +225,31 @@ workflow and make the GHCR package **public** (private is the default and
 Hugging Face pulls anonymously), then create the Space and set `HF_TOKEN` and
 `HF_SPACE`.
 
+## Built and alive — but not yet run
+
+**None of this is abandoned or optional.** Each item is committed, wired in and
+needed. The only thing they have in common is that nobody has executed them
+yet, and "written, typed and reviewed" is not the same claim as "working".
+Treat them as verification debt, not as open questions.
+
+| | Status | What a first run needs |
+|---|---|---|
+| **The sentence-transformers embedding provider** (`app/services/providers/sentence_transformers_provider.py`) | Shipped, registered, selectable with `EMBEDDING_PROVIDER=sentence_transformers`. It is the second `EmbeddingProvider` — the one that proves the seam in `providers/base.py` is real rather than asserted, and the only way this app embeds **without Ollama at all**, which is what a host with no Ollama would need | `uv sync --extra local-embed` (~2 GB of torch, which is why it is an extra and is not installed here), then upload a document and check the chunk count |
+| **The whole Docker path** — `Dockerfile`, `.dockerignore`, `deploy/start.sh`, `deploy/ollama-base/`, both workflows | Shipped, and **the only way the Space runs at all**. Nothing about it is discretionary | Docker, which this machine does not have. The first build happens on GitHub's runners (the base-image workflow) or on the laptop in `docs/ops/LAPTOP8.md` |
+| **`docs/ops/LAPTOP8.md`, `LAPTOP4.md`** | Plans, ready to execute | Physical access to those machines. Both open with a "facts to establish" step because they assume things that cannot be checked from here |
+
+What *was* checked, because a dry run was possible:
+
+- `.dockerignore` simulated against the real tree — 738 MB working tree → 1.0 MB
+  build context, with `.env`, `rag.db`, `related/`, `docs/jelena/` and
+  `docs/ops/` all confirmed excluded;
+- the process supervision in `start.sh` smoke-tested with fake processes, which
+  found a real bug: under `set -e` a bare `wait -n` returning non-zero kills the
+  script *at that line*, so the log saying which process died never printed.
+
+Expect the first real `docker build` to find something anyway. That is normal,
+not a failure of the plan.
+
 ## Next step
 
 Jelena postponed the whole *"what is next"* list in `MCP.md` — her note there
