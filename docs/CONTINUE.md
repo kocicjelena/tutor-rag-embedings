@@ -279,8 +279,14 @@ things now hold that together and each fails the run silently if it drifts:
 the Hub-side claims — which are matched **exactly**, so renaming
 `deploy-space.yml` stops the deploy.
 
-Still Jelena's, and now the only blockers: **push `main`** (`origin/main` is
-still one `init` commit — the Space would build nothing), **run the base-image
+**`main` is pushed — 2026-07-31.** Everything through
+`0105378 Add the browser store, and make the Space deploy keyless` is on GitHub,
+fast-forwarded from `milestone-3-mcp-agent-deploy` (also pushed). That push
+fires `deploy-space.yml`, so **the first deploy has run at least once**; whether
+the *Space* then built depends on the GHCR package being public. Next session:
+branch before committing again — the local checkout is on `main` now.
+
+Still Jelena's, and now the only blockers: **run the base-image
 workflow**, and **make the GHCR package public**. Written out step by step, with
 the failure table and both `CR_PAT` and CI routes for the Ollama image, in
 **`docs/MANUAL-GITHUB.md`** — new, and the answer to her notes 4–7 in `TODO.md`.
