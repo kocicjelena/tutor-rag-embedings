@@ -157,7 +157,8 @@ ENV PATH="/opt/venv/bin:${PATH}" \
     EMBEDDING_DIMENSIONS=768 \
     DEFAULT_CHAT_PROVIDER=claude \
     ANTHROPIC_API_KEY="" \
-    ALLOW_APP_KEY_FALLBACK=false
+    ALLOW_APP_KEY_FALLBACK=false \
+    USER_ANTHROPIC_KEYS=true
 
 # Two defaults above are deployment decisions, not conveniences:
 #
@@ -169,6 +170,14 @@ ENV PATH="/opt/venv/bin:${PATH}" \
 #   ALLOW_APP_KEY_FALLBACK=false — with a public URL, `true` means every visitor
 #   spends the operator's Anthropic balance. This is the setting BYOK exists to
 #   make safe: visitors bring their own key. Do not flip it to ship a demo.
+#
+#   USER_ANTHROPIC_KEYS=true — **adding your own Anthropic key must stay
+#   available on the Space.** It defaults to true in config.py, and it is
+#   repeated here on purpose: with ALLOW_APP_KEY_FALLBACK=false, turning this
+#   off leaves the deployed app with no route to Claude at all, and the failure
+#   looks like a broken provider rather than a config choice. It is a distant,
+#   independent feature next to the identity plan — and it stays live. See
+#   docs/AUTH.md.
 #
 # SECRET_KEY and IDENTITY_PEPPER are deliberately absent. ENVIRONMENT=production
 # makes app/core/config.py refuse to start on a placeholder SECRET_KEY, and

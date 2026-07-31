@@ -7,6 +7,7 @@ because that claim fails silently — an "encrypted key" column added later for
 convenience would break it while every functional test still passed.
 """
 
+from pathlib import Path
 import uuid
 from typing import Any
 
@@ -395,3 +396,32 @@ async def test_no_header_means_no_caller_key(
     await client.post("/api/v1/query/", json={"question": "anything"}, headers=headers)
 
     assert seen["api_key"] is None
+
+
+# ──────────────── BYOK must stay live on the deployed Space ────────────────
+#
+# Jelena's standing instruction, 2026-07-31: adding your own Anthropic key
+# stays a feature on the Space — distant from the identity plan, independent of
+# it, but live. These two guard the deploy-time settings, because the failure
+# they prevent does not look like a config mistake: it looks like Claude is
+# broken.
+
+def test_the_image_keeps_user_keys_switched_on() -> None:
+    """With ALLOW_APP_KEY_FALLBACK=false beside it, turning this off leaves the
+    Space with no route to Claude at all."""
+    dockerfile = Path(__file__).resolve().parents[1] / "Dockerfile"
+    body = dockerfile.read_text()
+
+    assert "USER_ANTHROPIC_KEYS=true" in body, (
+        "the deployed image must let visitors bring their own Anthropic key"
+    )
+    assert "ALLOW_APP_KEY_FALLBACK=false" in body, (
+        "a public URL must not spend the operator's balance"
+    )
+
+
+def test_byok_is_on_by_default_in_config() -> None:
+    """A visitor with their own key reaches Claude even when the app has none."""
+    from app.core.config import Settings
+
+    assert Settings().USER_ANTHROPIC_KEYS is True

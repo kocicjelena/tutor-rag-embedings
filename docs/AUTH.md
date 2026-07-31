@@ -77,6 +77,32 @@ Nothing on the "not built" side should be built speculatively. It is written
 down so that the next simplification is a **recorded deferral** rather than a
 quiet redefinition of what the app is.
 
+## BYOK stays — a standing instruction
+
+Demoting BYOK from *the point of the app* to *a stage* is a change of framing,
+**not a plan to remove it.** Jelena's instruction, 2026-07-31:
+
+> Save space for adding an Anthropic key on the Hugging Face Space. That has to
+> stay as a feature — distant, an addition, independent, but **live**.
+
+So: *distant* from the identity plan and *independent* of it, and working on the
+deployed Space. Do not fold it into billing, do not hide it behind a future
+account model, and do not delete it when the app can charge for itself. A user
+who already has an Anthropic account should always be able to bring their key
+and pay nothing.
+
+What that requires, concretely — check these before calling a deploy good:
+
+| | |
+|---|---|
+| `USER_ANTHROPIC_KEYS=true` | Set explicitly in the `Dockerfile`, not left to the default. With `ALLOW_APP_KEY_FALLBACK=false` beside it, turning this off leaves the Space with **no route to Claude at all**, and it fails looking like a broken provider rather than a config choice |
+| The *Claude access* panel on `/` | The only way a visitor can supply one. It is not admin UI and does not move behind a login wall |
+| The session cookie over HTTPS | `cookieOptions` derives `secure` from `x-forwarded-proto`, which Spaces sets. Keyed to `NODE_ENV` instead, the browser would silently drop the cookie and every Claude call would 503 |
+| `deploy/space-README.md` | Tells a visitor to bring a key, and why it is safe to |
+
+`tests/test_user_keys.py` asserts the Dockerfile still carries the flag, so
+removing it fails the suite rather than the Space.
+
 Patterns were read from `~/my-sei-dapp` (NextAuth v5 credentials provider, the
 hash-and-verify shape in `lib/server/apiKeys.ts`) and rewritten here. **Nothing
 in that repo was modified** — it is reference material, like `related/`.

@@ -40,6 +40,11 @@ discover this need after the bill.
 > rather than requiring every visitor to own an Anthropic account. BYOK is the
 > stage that makes a free public deploy possible in the meantime. Full record:
 > `docs/AUTH.md` → *The plan this serves*.
+>
+> **Reframing it is not removing it.** Adding your own Anthropic key stays a
+> live feature on the Space — distant from the identity plan, independent of
+> it, and working. A visitor who already has an Anthropic account should always
+> be able to bring their key and pay nothing. `docs/AUTH.md` → *BYOK stays*.
 
 **One Docker image for every destination.** Spaces takes a `Dockerfile`; so does
 Docker Compose on a VPS or on the laptop in `docs/ops/LAPTOP8.md`. There is no
@@ -245,6 +250,7 @@ builds.
 | `DEMO_USER` / `_PASSWORD` | see the signup decision |
 | `ANTHROPIC_API_KEY` | **leave empty** |
 | `ALLOW_APP_KEY_FALLBACK` | `false` |
+| `USER_ANTHROPIC_KEYS` | `true` — already set in the `Dockerfile`. **Do not turn it off:** with the fallback disabled beside it, the Space would have no route to Claude at all |
 | `ENVIRONMENT` | `production` — this is what makes `config.py` reject placeholder secrets |
 
 ## Needs a decision — how does a visitor get in?

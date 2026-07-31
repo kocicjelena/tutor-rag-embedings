@@ -76,6 +76,17 @@ was considered for them and left out.
 | **Running the test suite before deploy** | **Not a decision — an omission.** `deploy-space.yml` pushes on any commit to `main` with no gate. 175 tests run in ~44 s with no network; they should run first and block the push. Cheap to add, and it is the next CI change worth making | ⚠️ |
 | **Type-checking and `tsc` in CI** | Same. Both are clean locally and neither is enforced anywhere | ⚠️ |
 
+## Kept, and not to be removed
+
+The mirror of this file: things a future simplification would plausibly delete,
+and must not.
+
+| Keep | Why | |
+|---|---|---|
+| **BYOK — adding your own Anthropic key on the Space** | Demoted from "the point of the app" to "a stage" on 2026-07-31. That was a change of *framing*, not a plan to remove it. Jelena's instruction: distant, an addition, independent — but **live**. Someone who already has an Anthropic account should always be able to bring their key and pay nothing, including after the app can charge for itself. `USER_ANTHROPIC_KEYS=true` is set explicitly in the `Dockerfile` and a test asserts it stays | 🔒 |
+| **`/status` showing the refusals** | The `exploring` rows are the part of the page worth reading. A tidy-up that hides them leaves a feature list indistinguishable from any other README | 🔒 |
+| **The honest "Not working yet" table in README.md** | It is visible in the app, so removing it makes the gaps look like bugs instead of stated scope | 🔒 |
+
 ## Postponed, with a trigger
 
 | Item | Waiting on | |
