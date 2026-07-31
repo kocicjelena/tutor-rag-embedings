@@ -199,5 +199,10 @@ pick them up, and the last time they were outside git nothing carried forward.
 `.claude/rules/VECTORS.md` the vector layer: streaming ingestion, per-dimension indexes ·
 `.claude/rules/AUTH.md` identity, and who pays for Claude
 
+**Outside git, and yours to maintain:** `docs/SESSIONS.md` — the readable
+summary of where the project stands, written for Jelena rather than for a clone.
+Her decision, 2026-07-31: *"the repo is not the place for the summary of our
+sessions."* Update it at the end of a session, in prose, about twenty sentences.
+
 **Private, read it:** `docs/ops/` — infrastructure plans for Jelena's own machines.
 **Off-limits, never read:** `docs/jelena/` — see the note at the top.

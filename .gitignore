@@ -53,7 +53,18 @@ npm-debug.log*
 # had broken links and none of the reasoning travelled with the code. Moving
 # them is not the same as hiding them.
 #
-# What remains under docs/ is hers alone, and untracked:
+# `docs/` is now entirely untracked, and that is safe *because* the documents
+# moved into `.claude/rules/` — the old bug was ignoring the folder while the
+# reasoning still lived in it. What is here now is Jelena's own:
+#
+#   docs/SESSIONS.md  the readable summary of where the project stands. Her
+#                     decision, 2026-07-31: "the repo is not the place for the
+#                     summary of our sessions." Update it at the end of a
+#                     session; it is written for her, not for a clone.
+#   docs/jelena/      hers, off-limits — never read, never cite
+#   docs/ops/         her machines and network: private, but written for a
+#                     session to execute, so read it when the task is her laptops
+docs/
 docs/jelena/
 # Infrastructure plans for Jelena's own machines — her home network, what runs
 # on it, how it is exposed. Private, but NOT off-limits: unlike docs/jelena/

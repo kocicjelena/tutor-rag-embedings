@@ -251,6 +251,25 @@ with `MANUAL.md` (user and developer guide, including the Docker workflow),
 keys), `PLAN.md` (architecture and deployment), `DECISIONS.md` (what was
 deliberately *not* built), and `TODO.md` (what is next).
 
+## What I am proud of
+
+Three things in here are further along than a learning project usually gets. The
+**MCP layer is real** — a server, a client speaking the actual protocol, and an
+agent loop where the model chooses its own tools while every call is shown in
+the interface as it happens — and no tool can be handed a user, so a model
+choosing badly still cannot reach anyone else's material. The **retrieval layer
+is honest about its own limits**: each vector index holds exactly one embedding
+space, results from two models are never mixed to make a search look richer, and
+anything the current model cannot reach is marked unreachable instead of quietly
+returning nothing. And the app **reports on itself by measuring**, not by
+listing features — `/status` probes what it claims, and keeps a category for
+things that were examined and deliberately refused.
+
+The direction underneath all of it is the part I care about most: the tutor is
+built so that what you are taught accumulates into a corpus that is *yours*,
+exportable and portable, on the way to a model that keeps learning from its own
+use rather than being fixed at the moment it was trained.
+
 ## A note on the data
 
 Everything in the demo content is invented. Please don't put real, personal, or
