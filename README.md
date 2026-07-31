@@ -59,6 +59,7 @@ see `.env.example` for what to set.
 | Page | Status | What it does |
 |---|---|---|
 | `/` | ✅ available | Sign in, upload documents, ask questions. The answer streams in word by word, with a panel showing which pieces of your text it came from. |
+| `/status` | ✅ available | What this app can do, checked as the page loads — plus the things it examined and deliberately refused to build. |
 | `/tutor` | ✅ available | Ask the tutor to explain a topic. Every lesson is saved and indexed. "My model" then answers new questions from your own lessons only, and tells you honestly when it hasn't been taught something. |
 
 Both pages work. Some *features* on them do not — listed below.
@@ -97,6 +98,7 @@ Runs on `http://localhost:8000`. Interactive docs at `/docs`.
 | `GET` | `/api/v1/keys/anthropic` | ✓ | Do you have a key on file, and does the app have one of its own |
 | `PUT` | `/api/v1/keys/anthropic` | ✓ | Hand over your own Anthropic key — checked, hashed, plaintext dropped |
 | `DELETE` | `/api/v1/keys/anthropic` | ✓ | Forget it |
+| `GET` | `/api/v1/status/` | ✓ | What the app can do — probed live, not read from a list |
 | `GET` | `/api/v1/mcp/tools` | ✓ | The MCP tool catalogue — what a model would be offered |
 | `POST` | `/api/v1/mcp/call` | ✓ | Run one MCP tool yourself, as you |
 
@@ -116,6 +118,7 @@ login token stays on the server and never reaches the browser.
 | `GET` `PUT` `DELETE` | `/api/keys` | your own Anthropic key |
 | `GET` `POST` | `/api/documents` | list documents · upload |
 | `GET` | `/api/providers` | `/providers/` |
+| `GET` | `/api/status` | `/status/` — what works, checked at request time |
 | `POST` | `/api/tutor/teach` | `/tutor/teach` |
 | `POST` | `/api/tutor/interactions` | `/tutor/interactions` |
 | `POST` | `/api/tutor/recall` | `/tutor/recall` |
@@ -212,7 +215,7 @@ one.
 | Types | `pyright` strict, TypeScript strict |
 
 ```bash
-uv run pytest      # 159 tests, no network needed
+uv run pytest      # 175 tests, no network needed
 uv run pyright     # strict type checking
 ```
 

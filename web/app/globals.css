@@ -342,3 +342,101 @@ button.secondary {
 .spark .line { fill: none; stroke: var(--accent); stroke-width: 2; }
 .spark .area { fill: var(--accent); opacity: .12; }
 .spark .pt { fill: var(--accent); }
+
+/* ─── Status board ───────────────────────────────────────
+   The app describing itself. Rows are quiet by default and open on click,
+   because the interesting content — why something was refused — is a
+   paragraph, and fifteen paragraphs at once is a wall nobody reads. */
+
+.status-totals {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+}
+
+.status-area { margin-top: 18px; }
+.status-area h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.status-row { border-bottom: 1px solid var(--border); }
+.status-row:last-child { border-bottom: 0; }
+
+.status-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.status-head:disabled { cursor: default; }
+.status-head:hover:not(:disabled) .status-name { color: var(--accent); }
+.status-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The badge column is fixed so the names line up — a ragged left edge makes
+   a list of statuses much harder to scan than it needs to be. */
+.status-head > .badge { flex: 0 0 auto; min-width: 118px; justify-content: center; }
+
+.status-name { font-size: 13.5px; font-weight: 600; flex: 0 0 auto; }
+.status-summary {
+  font-size: 12.5px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+.status-chevron {
+  font-family: var(--mono);
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+/* Refused entries get a left rule. They are not errors — the red badge is
+   already doing enough — but they are a different kind of row and should not
+   be mistaken for something broken. */
+.status-row.refused .status-head { padding-left: 10px; }
+.status-row.refused {
+  border-left: 2px solid color-mix(in srgb, var(--err) 45%, transparent);
+  margin-left: -2px;
+}
+
+.status-detail {
+  padding: 2px 0 14px 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 68ch;
+}
+.status-detail p { margin: 0 0 8px; }
+.status-evidence { color: var(--muted); font-size: 12.5px; }
+.status-evidence code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .status-head { flex-wrap: wrap; gap: 6px; }
+  .status-head > .badge { min-width: 0; }
+  .status-summary { flex-basis: 100%; }
+}

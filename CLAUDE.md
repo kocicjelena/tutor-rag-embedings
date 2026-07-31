@@ -42,6 +42,7 @@ one. Full table with auth levels, purposes and the Next.js proxy routes: `docs/A
 | tutor model | `GET /tutor/model/export` · `POST /tutor/model/import` | tier 1 of `PLAN.md` §7. Export carries no vectors and no identity; import takes `owner_id` **from the token, never the file** |
 | providers | `GET /providers/` | live Ollama model list |
 | keys | `GET PUT DELETE /keys/anthropic` | the user's **own** Anthropic key — hash + fingerprint only, so their account is billed and this app stores nothing usable |
+| status | `GET /status/` | every capability, **probed** — `running` is measured, never declared. `exploring` = examined and deliberately refused. A probe may promote to running; it may never overrule a decision |
 | mcp | `GET /mcp/tools` · `POST /mcp/call` | the catalogue and one-tool invocation, both over a real client session |
 
 Planned, not built: **Ollama tool calling** (one more `stream_turn`; the loop is
@@ -147,6 +148,7 @@ app/
     ingest_stream.py    streaming ingestion — async-generator sink, one batch in memory
     tutor_model.py      record / export / import / stats — one path in, one out
     agent.py            the tool-calling loop + the corpus primer
+    capabilities.py     the self-report behind GET /status/ — probes, not claims
     providers/          base (Protocols), ollama, claude, sentence_transformers, registry
   scripts/    check_providers.py, reembed.py
   mcp/        context (the tenant boundary), tools, server, client — see docs/MCP.md

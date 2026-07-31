@@ -8,6 +8,13 @@ The point of this file is to stop future sessions rediscovering the same
 arguments. If you are about to add something listed here, read the row first;
 if the reasoning no longer holds, change it deliberately and say so.
 
+**Seven of these refusals are also in the app**, on `/status`, with the status
+`exploring` — the ones where building the easy version would have made the rest
+of the app mean less. `app/services/capabilities.py` is where they are written
+as data rather than prose, and a test asserts each one still explains itself.
+Change a reason here and change it there; they are two audiences for one
+decision, not two decisions.
+
 Three columns of status:
 
 | | |
@@ -66,7 +73,7 @@ was considered for them and left out.
 | **A reverse proxy and TLS certificates on the laptop** | Cloudflare Tunnel terminates TLS at the edge and needs no inbound port. Caddy would be a second thing to renew and expose | 🔒 |
 | **Pushing to the Space from a local machine** | One direction only, from CI. A hand-push from a laptop is how the Space and the repo drift | 🔒 |
 | **`docs/` inside the Docker image** | Not needed to run the app, and it would invalidate the layer cache on every documentation edit. Docs still reach the Space — the workflow pushes the *repo*, and Hugging Face builds the image from it. Two different things | 🔒 |
-| **Running the test suite before deploy** | **Not a decision — an omission.** `deploy-space.yml` pushes on any commit to `main` with no gate. 159 tests run in ~40 s with no network; they should run first and block the push. Cheap to add, and it is the next CI change worth making | ⚠️ |
+| **Running the test suite before deploy** | **Not a decision — an omission.** `deploy-space.yml` pushes on any commit to `main` with no gate. 175 tests run in ~44 s with no network; they should run first and block the push. Cheap to add, and it is the next CI change worth making | ⚠️ |
 | **Type-checking and `tsc` in CI** | Same. Both are clean locally and neither is enforced anywhere | ⚠️ |
 
 ## Postponed, with a trigger

@@ -7,6 +7,7 @@ from app.api.routes import (
     mcp,
     providers,
     query,
+    status,
     tutor,
     users,
 )
@@ -20,3 +21,4 @@ api_router.include_router(query.router)
 api_router.include_router(providers.router)
 api_router.include_router(tutor.router)
 api_router.include_router(mcp.router)
+api_router.include_router(status.router)

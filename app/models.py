@@ -469,6 +469,41 @@ class MCPCallResult(SQLModel):
     duration_ms: int
 
 
+# ──────────────────── Capabilities — what is real ────────────────────
+#
+# The app reporting its own state, honestly, instead of a README claiming it.
+# Four statuses, and the fourth is the interesting one — see
+# `app/services/capabilities.py`.
+
+CapabilityStatus = Literal["running", "built", "building", "exploring"]
+
+CapabilityArea = Literal["llm", "rag", "mcp", "identity", "deploy"]
+
+
+class CapabilityPublic(SQLModel):
+    key: str
+    name: str
+    area: CapabilityArea
+    status: CapabilityStatus
+    # One line, for the badge row.
+    summary: str
+    # The reasoning. For `exploring` this is the whole point of the entry.
+    detail: str | None = None
+    # Where the decision is written down, e.g. "docs/DECISIONS.md".
+    doc: str | None = None
+    # What the probe actually observed, when there was one. None means the
+    # status is declared rather than measured — which the UI says out loud.
+    evidence: str | None = None
+    probed: bool = False
+
+
+class CapabilityReport(SQLModel):
+    data: list[CapabilityPublic]
+    generated_at: datetime
+    # Counts by status, so the UI does not have to tally them.
+    totals: dict[str, int]
+
+
 # ──────────────────────────── Auth ────────────────────────────
 
 class Token(SQLModel):

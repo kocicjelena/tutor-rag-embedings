@@ -40,7 +40,7 @@ bugs. Before that: Milestone 1 end to end, the model export format (tier 1).
 > `docs/ops/` is private but **yours to read** — infrastructure plans for
 > Jelena's own machines, written for a session to execute.
 
-> `docs/jelena/` and `docs/jelena/ORIGINAL_BRIEF.md` are **off-limits** — Jelena's own
+> `docs/jelena/` is **off-limits** — Jelena's own
 > reminders, not session input. Everything that governs the code has been lifted out
 > of them already.
 
@@ -61,7 +61,7 @@ Tools: Claude decides what to search, the loop runs it over MCP, and every call
 appears in the trace panel.
 
 - `uv run fastapi dev app/main.py` + `cd web && npm run dev`
-- **159 tests** (~40 s, no network), `pyright` strict clean, `tsc` clean
+- **175 tests** (~44 s, no network), `pyright` strict clean, `tsc` clean
 - Verified against live Ollama, direct and through the Next.js proxy
 
 Not built yet: Ollama tool calling, rate limiting (Milestone 4), deployment,
@@ -195,6 +195,38 @@ defining the event protocol first.
 - `MAX_TOOL_ROUNDS = 5` is a ceiling against a model that searches forever on the
   user's balance. A failed tool goes back to the **model**, not the user.
 
+## Latest: the status page ✅ — the app reporting on itself
+
+`GET /api/v1/status/`, `app/services/capabilities.py`, and `/status` in the UI.
+Design notes in `docs/API.md` under *status*.
+
+Jelena's ask: give "built but never run" a real home, with four states —
+**running, built, building**, and a fourth for things examined and deliberately
+refused because they *"ruin the logic, the sense of existence of ML, AI and
+model protocols, and make the app meaningless"*. That fourth status is
+`exploring`, and it is the reason the page is worth having.
+
+Two rules hold it together, both tested:
+
+- **A probe may promote, never overrule.** A successful probe lifts `built` to
+  `running`. It can never touch `building` or `exploring`, because those are
+  *decisions* and no runtime observation can argue with one. Without this, a
+  refused feature that happens to be reachable would quietly turn green and the
+  reasoning would vanish.
+- **`running` is measured, never declared.** A test enforces that no capability
+  claims `running` without a probe — with one deliberate exception
+  (`streaming-ingest`, which cannot be probed without uploading a document), and
+  the UI says out loud when a row was not measured.
+
+A probe that fails or times out becomes *evidence*, not a 500. Live, against
+real Ollama: **6 running, 5 built, 4 building, 7 refused, in 360 ms** including
+an embedding round trip and a real MCP session.
+
+**One bug the tests found:** `report()` originally used `asyncio.gather`.
+`AsyncSession` is not safe for concurrent use, so two probes lost their results
+to *"this session is provisioning a new connection"*. It is sequential now, and
+the docstring says why — the obvious optimisation is the wrong one here.
+
 ## Latest: the deployment path ✅ built, never run
 
 Full plan and a candid assessment of it: **`docs/DEPLOY-HF.md`**.
@@ -266,7 +298,7 @@ button and a drop-target on `/tutor`), then tier 2 (`Modelfile` export),
 seed-on-startup, and rate limiting before the URL is shared.
 
 **One cheap CI change worth making early:** `deploy-space.yml` pushes on any
-commit to `main` with no test gate. 159 tests run in ~40 s with no network.
+commit to `main` with no test gate. 175 tests run in ~44 s with no network.
 They should run first and block the push. Recorded in `DECISIONS.md` as an
 omission rather than a decision.
 

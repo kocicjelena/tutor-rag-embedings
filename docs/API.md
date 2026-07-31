@@ -15,6 +15,7 @@ Next.js at `http://localhost:3000`.
 | Page | What it does |
 |---|---|
 | `/` | Documents. Upload files, ask questions, watch the answer stream with its sources and the tool-trace panel. |
+| `/status` | What the app can do, checked as the page loads, plus what it refused to build and why. |
 | `/tutor` | AI learning tutor. Claude or Ollama teaches, every exchange is indexed, and "My model" recalls from your own lessons. |
 
 ## Backend API — FastAPI
@@ -119,6 +120,29 @@ Anthropic. The working key travels per request in the `X-Anthropic-Key` header
 and is never written down. **No route returns a key**, for anyone. Reasoning
 and the deployment checklist in `AUTH.md`.
 
+### status
+
+| Method | Path | Auth | Purpose |
+|---|---|:--:|---|
+| `GET` | `/api/v1/status/` | ✓ | Every capability, **probed** — what actually works right now |
+
+`/health` answers "is this process alive". This answers "and which parts of it
+work", by checking rather than by reading a list someone maintained by hand: it
+opens a real MCP session and counts the tools, embeds a string, and asks SQLite
+for `vec_version()`. Four statuses — `running` (measured just now), `built`
+(committed and tested, not verified here), `building`, and `exploring`.
+
+**`exploring` is the one worth reading.** Those are not a backlog: they are
+things examined closely and deliberately refused, because building them would
+have made the rest of the app mean less — a tool that generates its own text, a
+search that merges two embedding spaces, an `owner_id` argument on a tool.
+
+Two rules hold. A probe may **promote** a capability to `running`; it may never
+overrule `building` or `exploring`, because those are decisions and no runtime
+check can argue with one. And a probe that fails or times out becomes
+*evidence*, never an error — a status page that falls over when a service is
+down is worse than none. Design in `app/services/capabilities.py`.
+
 ### mcp
 
 | Method | Path | Auth | Purpose |
@@ -145,6 +169,7 @@ browser.
 | `GET` `PUT` `DELETE` | `/api/keys` | `/api/v1/keys/anthropic` — plus the session cookie holding the working key |
 | `GET` `POST` | `/api/documents` | list / upload |
 | `GET` | `/api/providers` | `/api/v1/providers/` |
+| `GET` | `/api/status` | `/api/v1/status/` — `no-store`, because a cached status page lies exactly when something has just broken |
 | `POST` | `/api/tutor/teach` | SSE passthrough |
 | `POST` | `/api/tutor/interactions` | record a lesson |
 | `POST` | `/api/tutor/recall` | recall |

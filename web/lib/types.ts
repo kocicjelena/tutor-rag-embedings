@@ -65,6 +65,36 @@ export interface DocumentInfo {
   searchable: boolean;
 }
 
+/**
+ * What the app can do, as the app itself reports it.
+ *
+ * `running` is measured, not declared: a probe succeeded moments ago. The
+ * fourth status is the interesting one — `exploring` means examined and
+ * deliberately refused, because building it would have made the rest mean less.
+ */
+export type CapabilityStatus = "running" | "built" | "building" | "exploring";
+
+export type CapabilityArea = "llm" | "rag" | "mcp" | "identity" | "deploy";
+
+export interface Capability {
+  key: string;
+  name: string;
+  area: CapabilityArea;
+  status: CapabilityStatus;
+  summary: string;
+  detail: string | null;
+  doc: string | null;
+  /** What the probe observed. Null when the status is declared, not measured. */
+  evidence: string | null;
+  probed: boolean;
+}
+
+export interface CapabilityReport {
+  data: Capability[];
+  generated_at: string;
+  totals: Partial<Record<CapabilityStatus, number>>;
+}
+
 /** A tool invocation paired with its result, for the trace panel. */
 export interface ToolRun {
   id: string;

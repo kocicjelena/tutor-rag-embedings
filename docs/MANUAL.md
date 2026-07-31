@@ -69,7 +69,12 @@ superuser, by design.
    panel with its arguments, its result and how long it took. It is slower and
    costs more tokens, which is why it is a checkbox rather than the default.
    Ollama does not do this yet and says so rather than failing quietly.
-6. **A *not searchable* badge** on a document means it was indexed by a
+6. **`/status`** shows what the app can currently do, checked as the page
+   loads rather than read from a list. Four states — *running* (verified a
+   moment ago), *built*, *building*, and *explored, refused*. The last one is
+   the interesting part: things examined closely and deliberately not built,
+   with the reason, because building them would have made the rest mean less.
+7. **A *not searchable* badge** on a document means it was indexed by a
    different embedding model than the one now in use, so search cannot reach
    it. See *Changing the embedding model* in the developer half.
 
@@ -108,11 +113,12 @@ app/
     ingest_stream.py   streaming ingestion — the async-generator sink
     tutor_model.py     record / export / import / stats
     agent.py           the tool-calling loop, and the corpus primer
+    capabilities.py    the self-report behind GET /status/ — probes, not claims
     providers/         base (Protocols), ollama, claude, sentence_transformers, registry
   mcp/                 context, tools, server, client — see docs/MCP.md
   api/routes/          login, users, documents, query, tutor, providers, keys, mcp
   scripts/             check_providers.py, reembed.py
-tests/                 159 tests, no network required
+tests/                 175 tests, no network required
 web/                   Next.js 16 App Router
 ```
 
@@ -123,7 +129,7 @@ web/                   Next.js 16 App Router
 uv sync --extra dev
 uv sync --extra local-embed               # optional: sentence-transformers (~2 GB)
 uv run fastapi dev app/main.py            # :8000, auto-reload
-uv run pytest                             # 159 tests, ~40s, no network
+uv run pytest                             # 175 tests, ~44s, no network
 uv run pyright                            # strict, must stay clean
 uv run python -m app.scripts.check_providers   # diagnose provider setup
 uv run python -m app.scripts.reembed --dry-run # what a model change would cost

@@ -89,6 +89,7 @@ export default function Home() {
             Documents
           </Link>
           <Link href="/tutor">Tutor</Link>
+          <Link href="/status">Status</Link>
         </nav>
 
         <button className="secondary" onClick={signOut}>
