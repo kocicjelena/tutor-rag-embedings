@@ -72,6 +72,15 @@ export interface IContextAction {
    * the state of SQLite and the browser is mirroring it, not counting alongside it.
    */
   learn: (text: string, term?: string) => Promise<void>;
+  /**
+   * Rehydrate the slice from the database for a session that already exists.
+   *
+   * The completion of *mirror, do not accumulate*: after a reload the browser has no state
+   * to have been returned to it, so it asks. It also resumes the sequence from
+   * `last_seq + 1`, which is what stops a reloaded page writing over rows that are already
+   * there.
+   */
+  syncModel: (sessionId: string) => Promise<void>;
   /** Forget the session. The database keeps everything it was told. */
   clearModel: () => void;
 }

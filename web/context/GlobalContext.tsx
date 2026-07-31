@@ -155,6 +155,36 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     return id;
   }, []);
 
+  const syncModel = useCallback(async (sessionId: string) => {
+    dispatch({ type: actionTypes.MODEL_SESSION_START, payload: { sessionId } });
+    sessionRef.current = sessionId;
+    queueRef.current = [];
+
+    try {
+      const response = await fetch(
+        `/api/tutor/learn?session_id=${encodeURIComponent(sessionId)}`,
+      );
+      if (!response.ok) throw new Error(`Could not read the model (${response.status})`);
+      const state = await response.json();
+      // Continue where the database left off. Starting at zero after a reload would
+      // collide with rows already stored, and every one of them would come back as
+      // `skipped` — correct, and silently useless.
+      seqRef.current = (state.last_seq ?? -1) + 1;
+      dispatch({
+        type: actionTypes.MODEL_SYNCED,
+        payload: { accepted: [], state },
+      });
+    } catch (err) {
+      dispatch({
+        type: actionTypes.MODEL_ERROR,
+        payload: {
+          error: err instanceof Error ? err.message : "Could not read the model",
+          pieces: [],
+        },
+      });
+    }
+  }, []);
+
   const clearModel = useCallback(() => {
     sessionRef.current = null;
     queueRef.current = [];
@@ -243,6 +273,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       clearStream,
       startLearning,
       learn,
+      syncModel,
       clearModel,
     }),
     [
@@ -255,6 +286,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       clearStream,
       startLearning,
       learn,
+      syncModel,
       clearModel,
     ],
   );

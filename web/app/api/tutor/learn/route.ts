@@ -16,6 +16,32 @@ import { apiFetch, Unauthenticated, unauthenticatedResponse } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Rehydrate: the model for one session, as the database holds it.
+ *
+ * The other half of *mirror, do not accumulate*. A push returns the state, but a browser
+ * that reloaded has no push to be answered — and without this it would restart its
+ * sequence at zero and collide with rows already stored.
+ */
+export async function GET(request: Request) {
+  const sessionId = new URL(request.url).searchParams.get("session_id");
+  if (!sessionId) {
+    return Response.json({ detail: "session_id is required." }, { status: 400 });
+  }
+  try {
+    const upstream = await apiFetch(
+      `/api/v1/tutor/learn?session_id=${encodeURIComponent(sessionId)}`,
+    );
+    return new Response(await upstream.text(), {
+      status: upstream.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    if (error instanceof Unauthenticated) return unauthenticatedResponse();
+    return Response.json({ detail: "Could not read the model." }, { status: 502 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const upstream = await apiFetch("/api/v1/tutor/learn", {

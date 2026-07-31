@@ -15,6 +15,7 @@ server-side and owner-scoped, it survives the browser and keeps improving.
 """
 
 import logging
+import uuid
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Response
@@ -27,6 +28,7 @@ from app.models import (
     ChunkResult,
     LearnRequest,
     LearnResponse,
+    LearningModelState,
     TutorInteractionCreate,
     TutorInteractionPublic,
     TutorModelExport,
@@ -191,6 +193,27 @@ async def learn(
             session, current_user.id, body.session_id
         ),
     )
+
+
+@router.get("/learn", response_model=LearningModelState)
+async def learning_state(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    session_id: uuid.UUID,
+) -> LearningModelState:
+    """The model for one teaching session, as SQLite holds it.
+
+    The other half of *mirror, do not accumulate*: the push already returns the
+    state, but a browser that reloaded has no state to be returned to. This is
+    how the context rehydrates — and it is what lets the client resume the
+    sequence from `last_seq + 1` instead of starting again at zero and
+    colliding with rows that are already there.
+
+    Unknown session ids are not an error. A session with nothing in it reads as
+    a session with nothing in it.
+    """
+    return await learning_stream.read_state(session, current_user.id, session_id)
 
 
 @router.post("/interactions", response_model=TutorInteractionPublic, status_code=201)

@@ -44,7 +44,7 @@ drained by one action inside the provider. The channel from the browser to the m
 built: pieces of learning travel up as they happen, are embedded on arrival and
 persist in SQLite, and the state comes back into a context slice — with the
 search index deliberately untouched. The Docker path, both GitHub workflows and
-a `compose.yaml` for this laptop are written. There are 187 tests,
+a `compose.yaml` for this laptop are written. There are 190 tests,
 no network needed, with `pyright` and `tsc` clean.
 
 ## To do

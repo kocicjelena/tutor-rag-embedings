@@ -246,3 +246,69 @@ async def test_route_requires_a_caller(client: AsyncClient) -> None:
         json={"session_id": str(uuid.uuid4()), "pieces": []},
     )
     assert response.status_code == 401
+
+
+async def test_state_route_rehydrates_a_session(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """After a reload the browser has no push to be answered — so it asks."""
+    user = await make_user(session)
+    headers = await auth_headers(client, user.email)
+    session_id = str(uuid.uuid4())
+
+    await client.post(
+        "/api/v1/tutor/learn",
+        json={
+            "session_id": session_id,
+            "term": "Vectors",
+            "pieces": [{"seq": 0, "text": "one"}, {"seq": 1, "text": "two"}],
+        },
+        headers=headers,
+    )
+
+    response = await client.get(
+        f"/api/v1/tutor/learn?session_id={session_id}", headers=headers
+    )
+    assert response.status_code == 200
+    state = response.json()
+    assert state["events"] == 2
+    # What the client resumes from: last_seq + 1, so a reloaded page does not
+    # rewrite rows that already exist.
+    assert state["last_seq"] == 1
+    assert state["terms"] == ["Vectors"]
+
+
+async def test_an_unknown_session_reads_as_empty_not_an_error(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await make_user(session)
+    headers = await auth_headers(client, user.email)
+    response = await client.get(
+        f"/api/v1/tutor/learn?session_id={uuid.uuid4()}", headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["events"] == 0
+    assert response.json()["last_seq"] is None
+
+
+async def test_another_user_cannot_read_your_session(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    owner = await make_user(session)
+    owner_headers = await auth_headers(client, owner.email)
+    session_id = str(uuid.uuid4())
+    await client.post(
+        "/api/v1/tutor/learn",
+        json={"session_id": session_id, "pieces": [{"seq": 0, "text": "mine"}]},
+        headers=owner_headers,
+    )
+
+    stranger = await make_user(session)
+    stranger_headers = await auth_headers(client, stranger.email)
+    response = await client.get(
+        f"/api/v1/tutor/learn?session_id={session_id}", headers=stranger_headers
+    )
+    # Not 404: the session id is not a secret, and its emptiness is the honest
+    # answer for someone who owns nothing in it.
+    assert response.status_code == 200
+    assert response.json()["events"] == 0

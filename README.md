@@ -110,6 +110,7 @@ Runs on `http://localhost:8000`. Interactive docs at `/docs`.
 | `POST` | `/api/v1/query/agent` | ✓ | Let the model choose which tools to run, and watch it work |
 | `POST` | `/api/v1/tutor/teach` | ✓ | The tutor explains a topic, streamed |
 | `POST` | `/api/v1/tutor/learn` | ✓ | Push pieces of learning as they happen — embedded on arrival, returns the model's state |
+| `GET` | `/api/v1/tutor/learn` | ✓ | The model for one session, read back from the database |
 | `POST` | `/api/v1/tutor/interactions` | ✓ | Save one lesson into your model |
 | `POST` | `/api/v1/tutor/recall` | ✓ | Answer from your own lessons only |
 | `GET` | `/api/v1/tutor/stats` | ✓ | How many lessons and topics your model holds |
@@ -141,7 +142,7 @@ login token stays on the server and never reaches the browser.
 | `GET` | `/api/providers` | `/providers/` |
 | `GET` | `/api/status` | `/status/` — what works, checked at request time |
 | `POST` | `/api/tutor/teach` | `/tutor/teach` |
-| `POST` | `/api/tutor/learn` | `/tutor/learn` — the upward channel |
+| `GET` `POST` | `/api/tutor/learn` | `/tutor/learn` — read the model back · the upward channel |
 | `POST` | `/api/tutor/interactions` | `/tutor/interactions` |
 | `POST` | `/api/tutor/recall` | `/tutor/recall` |
 | `GET` | `/api/tutor/stats` | `/tutor/stats` |
@@ -253,7 +254,7 @@ one.
 | Types | `pyright` strict, TypeScript strict |
 
 ```bash
-uv run pytest      # 187 tests, no network needed
+uv run pytest      # 190 tests, no network needed
 uv run pyright     # strict type checking
 ```
 
