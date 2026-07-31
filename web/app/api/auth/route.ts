@@ -5,7 +5,12 @@
  * token is never returned to the browser.
  */
 
-import { API_BASE_URL, TOKEN_COOKIE } from "@/lib/api";
+import {
+  ANTHROPIC_KEY_COOKIE,
+  API_BASE_URL,
+  TOKEN_COOKIE,
+  cookieOptions,
+} from "@/lib/api";
 import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
@@ -38,22 +43,15 @@ export async function POST(request: Request) {
 
   const { access_token } = (await upstream.json()) as { access_token: string };
 
-  // Derive `secure` from the actual request protocol, not from NODE_ENV.
-  // Keying it to NODE_ENV means a local `npm run build && npm run start` sets
-  // Secure on an http://localhost cookie, the browser never sends it back, and
-  // sign-in appears to succeed while every subsequent request 401s.
-  const forwardedProto = request.headers.get("x-forwarded-proto");
-  const isHttps =
-    forwardedProto === "https" || new URL(request.url).protocol === "https:";
-
   const store = await cookies();
   store.set(TOKEN_COOKIE, access_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isHttps,
-    path: "/",
+    ...cookieOptions(request),
     maxAge: 60 * 60 * 24 * 8, // matches ACCESS_TOKEN_EXPIRE_MINUTES
   });
+
+  // A previous user's Anthropic key must not survive into this session. On a
+  // shared machine that would bill them for a stranger's questions.
+  store.delete(ANTHROPIC_KEY_COOKIE);
 
   return Response.json({ ok: true });
 }
@@ -61,6 +59,8 @@ export async function POST(request: Request) {
 export async function DELETE() {
   const store = await cookies();
   store.delete(TOKEN_COOKIE);
+  // Signing out has to drop the key too — it is the only copy that exists.
+  store.delete(ANTHROPIC_KEY_COOKIE);
   return Response.json({ ok: true });
 }
 

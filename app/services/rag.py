@@ -6,6 +6,7 @@ Provider-agnostic — nothing here knows whether Ollama or Claude will answer.
 import logging
 import re
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,7 +52,21 @@ def chunk_text(
     chunk_size: int | None = None,
     chunk_overlap: int | None = None,
 ) -> list[str]:
-    """Split text into overlapping chunks on natural boundaries.
+    """Every chunk, as a list. The whole-document form.
+
+    Kept as the primary name because every existing caller and test uses it.
+    `iter_chunks` is the same algorithm yielding lazily, for the streaming
+    ingestion path.
+    """
+    return list(iter_chunks(text, chunk_size, chunk_overlap))
+
+
+def iter_chunks(
+    text: str,
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+) -> Iterator[str]:
+    """Split text into overlapping chunks on natural boundaries, lazily.
 
     Two fixes over the inherited version:
 
@@ -71,7 +86,6 @@ def chunk_text(
     text = re.sub(r"\r\n|\r", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
 
-    chunks: list[str] = []
     start = 0
     text_len = len(text)
 
@@ -86,7 +100,7 @@ def chunk_text(
 
         chunk = text[start:end].strip()
         if chunk:
-            chunks.append(chunk)
+            yield chunk
 
         # Everything is consumed — stop. Without this, `start = end - overlap`
         # rewinds into already-emitted text and crawls to the end one character
@@ -96,8 +110,6 @@ def chunk_text(
 
         # Guarantee forward progress regardless of where the boundary landed.
         start = max(end - overlap, start + 1)
-
-    return chunks
 
 
 # ──────────────────────────── Ingestion ────────────────────────────
@@ -139,6 +151,7 @@ async def ingest_document(
         owner_id,
         document_id,
         [(chunk.id, vector) for chunk, vector in zip(chunks, embeddings, strict=True)],
+        dimensions=embedder.dimensions,
     )
     await session.commit()
     return len(chunks)
@@ -158,8 +171,17 @@ async def retrieve(
     embedder = get_embedding_provider()
     query_vector = (await embedder.embed([question]))[0]
 
+    # The active provider's own width: retrieval reads exactly the index its
+    # own vectors live in. Documents indexed by a different model are not in
+    # it, and are reported as unsearchable rather than quietly skipped —
+    # `DocumentPublic.searchable`.
     hits = await vectors.search(
-        session, owner_id, query_vector, top_k, document_ids
+        session,
+        owner_id,
+        query_vector,
+        top_k,
+        document_ids,
+        dimensions=embedder.dimensions,
     )
     if not hits:
         return Retrieval(sources=[], context="")

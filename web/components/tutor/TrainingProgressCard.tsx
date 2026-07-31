@@ -1,6 +1,5 @@
 "use client";
 
-import { RECALL_UNLOCK_INTERACTIONS } from "./lib/constants";
 import type { LearningModel, TutorStats } from "./lib/types";
 
 type Props = {
@@ -16,8 +15,6 @@ export function TrainingProgressCard({
   indexedLessons,
   recallUnlocked,
 }: Props) {
-  const remaining = Math.max(0, RECALL_UNLOCK_INTERACTIONS - indexedLessons);
-
   return (
     <div className="panel">
       <h2>Progress</h2>
@@ -51,7 +48,7 @@ export function TrainingProgressCard({
 
       {!recallUnlocked && (
         <p className="hint" style={{ marginTop: 10 }}>
-          {remaining} more lesson{remaining === 1 ? "" : "s"} to unlock recall.
+          One lesson is enough to start recalling.
         </p>
       )}
     </div>

@@ -9,6 +9,7 @@
  */
 
 import { useRef, useState } from "react";
+import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { readEventStream } from "@/lib/stream";
 import type { SourceChunk, ToolRun } from "@/lib/types";
 
@@ -27,10 +28,14 @@ export default function ChatStream({
 }: Props) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  // Off by default: the agent is slower and costs more tokens, and most
+  // questions are answered just as well by one-shot retrieval.
+  const [useTools, setUseTools] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [answeredBy, setAnsweredBy] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const endRef = useStickToBottom(answer, streaming);
 
   async function ask(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +56,13 @@ export default function ChatStream({
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, provider, model, top_k: 5 }),
+        body: JSON.stringify({
+          question,
+          provider,
+          model,
+          top_k: 5,
+          agent: useTools,
+        }),
         signal: controller.signal,
       });
 
@@ -139,6 +150,30 @@ export default function ChatStream({
           <span className="grow" />
           {answeredBy && <span className="badge ok">{answeredBy}</span>}
         </div>
+        <label
+          className="hint"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 10,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={useTools}
+            onChange={(e) => setUseTools(e.target.checked)}
+            disabled={streaming}
+            style={{ width: "auto", margin: 0 }}
+          />
+          <span>
+            <strong>Let the model use tools</strong> — it decides what to search
+            for, and may look more than once. Slower, and the steps show in the
+            panel below. Claude only for now.
+          </span>
+        </label>
+
         <p className="hint" style={{ marginTop: 6 }}>
           ⌘/Ctrl + Enter to send.
         </p>
@@ -156,6 +191,10 @@ export default function ChatStream({
           {streaming && <span className="cursor" />}
         </div>
       )}
+
+      {/* Scroll target — must stay last so "the bottom" means the end of the
+          answer, not the end of the form. */}
+      <div ref={endRef} />
     </div>
   );
 }

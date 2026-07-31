@@ -15,7 +15,7 @@
  *            answer verbatim.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AI_TERMS,
   DEFAULT_GOALS,
@@ -38,6 +38,7 @@ import type {
   TutorMode,
   TutorStats,
 } from "@/components/tutor/lib/types";
+import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { readEventStream } from "@/lib/stream";
 
 let messageSeq = 0;
@@ -94,7 +95,11 @@ export function useLearningTutor(): LearningTutorState {
   const [stats, setStats] = useState<TutorStats | null>(null);
   const [goals, setGoals] = useState<string[]>(DEFAULT_GOALS);
   const [newGoal, setNewGoal] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  // Follows the streaming answer down the page. Previously this scrolled with
+  // `behavior: "smooth"` on every `messages` change, which cannot keep up with
+  // a token stream — each token restarted the animation and the text drifted
+  // out of view. See `useStickToBottom`.
+  const messagesEndRef = useStickToBottom(messages, loading);
 
   const refreshStats = useCallback(async () => {
     try {
@@ -109,10 +114,6 @@ export function useLearningTutor(): LearningTutorState {
     setLearningModel(loadLearningModel());
     void refreshStats();
   }, [refreshStats]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   /** Unlock from the server's count when we have it — that's the real corpus. */
   const indexedLessons = stats?.interactions ?? learningModel.interactions;

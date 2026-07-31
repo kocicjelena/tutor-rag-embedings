@@ -1,6 +1,5 @@
 "use client";
 
-import { RECALL_UNLOCK_INTERACTIONS } from "./lib/constants";
 import { findTermById } from "./lib/terms";
 import type { LearningModel } from "./lib/types";
 import { BookIcon, SparkIcon } from "./Icons";
@@ -19,10 +18,6 @@ export function EmptyLearningState({
   recallUnlocked,
 }: Props) {
   const term = findTermById(selectedTerm);
-  const progress = Math.min(
-    100,
-    (indexedLessons / RECALL_UNLOCK_INTERACTIONS) * 100,
-  );
 
   return (
     <div style={{ textAlign: "center", padding: "26px 8px" }}>
@@ -59,15 +54,12 @@ export function EmptyLearningState({
             directly.
           </p>
         ) : (
-          <>
-            <div className="meter learn">
-              <i style={{ width: `${progress}%` }} />
-            </div>
-            <p className="hint" style={{ marginTop: 6 }}>
-              {indexedLessons}/{RECALL_UNLOCK_INTERACTIONS} lessons before recall
-              unlocks. Ask the tutor anything to begin.
-            </p>
-          </>
+          // Nothing indexed. Not a countdown — there is exactly one thing to
+          // do, and a progress bar at 0% only makes it look further away.
+          <p className="hint">
+            Nothing indexed yet, so there is nothing to recall. Ask the tutor
+            anything — your first lesson becomes your model.
+          </p>
         )}
       </div>
     </div>

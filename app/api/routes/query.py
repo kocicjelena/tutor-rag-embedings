@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CallerAnthropicKey, CurrentUser, SessionDep
 from app.models import ChunkResult, QueryRequest, QueryResponse
 from app.schemas.events import (
     SSE_MEDIA_TYPE,
@@ -22,12 +22,13 @@ from app.schemas.events import (
     SourcesEvent,
     TokenEvent,
 )
-from app.services import rag
+from app.services import agent, rag
 from app.services.providers import (
     ProviderUnavailableError,
     get_chat_provider,
     resolve_model,
 )
+from app.services.providers.base import ToolCallingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +55,17 @@ async def _check_document_access(
 
 @router.post("/", response_model=QueryResponse)
 async def query_documents(
-    *, session: SessionDep, current_user: CurrentUser, query_in: QueryRequest
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    anthropic_key: CallerAnthropicKey,
+    query_in: QueryRequest,
 ) -> QueryResponse:
     """Ask a question; get a complete answer grounded in your documents."""
     if query_in.document_ids:
         await _check_document_access(session, current_user, query_in.document_ids)
 
-    provider = get_chat_provider(query_in.provider)
+    provider = get_chat_provider(query_in.provider, api_key=anthropic_key)
     model = resolve_model(provider, query_in.model)
 
     retrieval = await rag.retrieve(
@@ -106,7 +111,11 @@ async def query_documents(
 
 @router.post("/stream")
 async def query_documents_stream(
-    *, session: SessionDep, current_user: CurrentUser, query_in: QueryRequest
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    anthropic_key: CallerAnthropicKey,
+    query_in: QueryRequest,
 ) -> StreamingResponse:
     """Stream the answer as typed SSE events.
 
@@ -120,7 +129,7 @@ async def query_documents_stream(
 
     # Resolve the provider before opening the stream so a misconfiguration is a
     # clean 503 rather than an error frame inside a 200 response.
-    provider = get_chat_provider(query_in.provider)
+    provider = get_chat_provider(query_in.provider, api_key=anthropic_key)
     model = resolve_model(provider, query_in.model)
 
     async def event_stream() -> AsyncIterator[str]:
@@ -167,5 +176,61 @@ async def query_documents_stream(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # stop nginx buffering the stream
+        },
+    )
+
+
+@router.post("/agent")
+async def query_agent(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    anthropic_key: CallerAnthropicKey,
+    query_in: QueryRequest,
+) -> StreamingResponse:
+    """Let the model choose which tools to run, and watch it work.
+
+    A separate route from `/query/stream`, not a flag on it. The two answer
+    differently — one retrieves once up front, the other decides — and the
+    agent is slower and costs more tokens. Making it a mode of the existing
+    route would have made every plain question pay for a capability it did not
+    ask for.
+
+    Same event union as every other stream, with `tool_call` / `tool_result`
+    now actually produced. Reasoning in `app/services/agent.py`.
+    """
+    provider = get_chat_provider(query_in.provider, api_key=anthropic_key)
+    model = resolve_model(provider, query_in.model)
+
+    # Checked before the stream opens so it is a clean 4xx, not an error frame
+    # inside a 200. Ollama's tool support depends on the model rather than the
+    # provider, so it is deliberately not claimed yet.
+    if not isinstance(provider, ToolCallingProvider):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{provider.name} cannot call tools yet. Use provider=claude, "
+                "or POST /query/stream for retrieval without tools."
+            ),
+        )
+
+    async def event_stream() -> AsyncIterator[str]:
+        yield ProviderEvent(provider=provider.name, model=model).to_sse()
+        async for frame in agent.run(
+            session=session,
+            owner_id=current_user.id,
+            provider=provider,
+            model=model,
+            question=query_in.question,
+        ):
+            yield frame
+
+    return StreamingResponse(
+        event_stream(),
+        media_type=SSE_MEDIA_TYPE,
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )

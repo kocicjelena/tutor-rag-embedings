@@ -104,10 +104,15 @@ async def init_db() -> None:
     """
     # Imported here so `app.models` is registered on SQLModel.metadata before
     # create_all, and to avoid a circular import with app.crud.
-    from app.services.vectors import create_vector_table
+    from app.services.vectors import BASE_DIMENSIONS, create_vector_table
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
+        # The 768 index always exists — it holds everything indexed so far, and
+        # `reembed` needs to be able to read it even while another provider is
+        # active. The second call creates the configured width, and is the same
+        # statement when that width is 768.
+        await create_vector_table(conn, BASE_DIMENSIONS)
         await create_vector_table(conn)
 
     async with SessionLocal() as session:

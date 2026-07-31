@@ -5,7 +5,7 @@
  * badge classes instead of Tailwind colour utilities.
  */
 
-import { AI_TERMS, RECALL_UNLOCK_INTERACTIONS } from "./constants";
+import { AI_TERMS, BEGINNER_INTERACTIONS } from "./constants";
 import type {
   InteractionFeedback,
   LearningModel,
@@ -16,7 +16,7 @@ export function analyzeProficiency(
   interactions: number,
   topicMastery: Record<string, number>,
 ): ProficiencyLevel {
-  if (interactions < RECALL_UNLOCK_INTERACTIONS) return "beginner";
+  if (interactions < BEGINNER_INTERACTIONS) return "beginner";
   if (interactions < 15) return "intermediate";
 
   const masteryValues = Object.values(topicMastery);

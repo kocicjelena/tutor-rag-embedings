@@ -16,18 +16,24 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  let payload: unknown;
+  let payload: Record<string, unknown>;
   try {
-    payload = await request.json();
+    payload = (await request.json()) as Record<string, unknown>;
   } catch {
     return Response.json({ detail: "Invalid JSON body" }, { status: 400 });
   }
 
+  // `agent: true` picks the tool-calling loop instead of one-shot retrieval.
+  // The flag is a frontend concept and is stripped before forwarding — the
+  // choice is which upstream route to call, not a field the API takes.
+  const { agent, ...body } = payload;
+  const path = agent === true ? "/api/v1/query/agent" : "/api/v1/query/stream";
+
   try {
-    const upstream = await apiFetch("/api/v1/query/stream", {
+    const upstream = await apiFetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
 
     // A provider misconfiguration comes back as a JSON 503 before the stream

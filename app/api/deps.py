@@ -4,7 +4,7 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
@@ -55,6 +55,36 @@ async def get_current_user(session: SessionDep, token: TokenDep) -> User:
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+# ─────────────────── The caller's own Anthropic key ───────────────────
+#
+# Carried per request in a header, never in the database. The Next.js layer
+# holds it in an httpOnly cookie the browser cannot read and attaches it when
+# proxying, so it exists here only for the life of one request.
+#
+# A header rather than a JWT claim on purpose: JWTs are signed, not encrypted,
+# so anything inside one is readable by whoever holds the token — and tokens
+# end up in logs, browser storage and bug reports. A credential must not.
+ANTHROPIC_KEY_HEADER = "X-Anthropic-Key"
+
+
+async def get_caller_anthropic_key(
+    raw: Annotated[str | None, Header(alias=ANTHROPIC_KEY_HEADER)] = None,
+) -> str | None:
+    """The caller's own Anthropic key for this request, if they sent one.
+
+    Not validated here. A wrong key surfaces as a 503 from the provider with a
+    message aimed at the user, which is both cheaper and more accurate than
+    pre-checking it on every request.
+    """
+    if not settings.USER_ANTHROPIC_KEYS:
+        return None
+    cleaned = (raw or "").strip()
+    return cleaned or None
+
+
+CallerAnthropicKey = Annotated[str | None, Depends(get_caller_anthropic_key)]
 
 
 async def get_current_active_superuser(current_user: CurrentUser) -> User:

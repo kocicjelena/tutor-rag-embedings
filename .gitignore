@@ -42,4 +42,17 @@ npm-debug.log*
 .idea/
 *.swp
 
-docs/
+# ─── Docs ──────────────────────────────────────────────────
+# `docs/` as a whole used to be ignored. That also hid PLAN, API, MCP, AUTH,
+# VECTORS, MANUAL, TODO and CONTINUE — every file README.md links to — so a
+# clone had broken links and none of the reasoning travelled with the code.
+# Only Jelena's private material is excluded now.
+docs/jelena/
+# Infrastructure plans for Jelena's own machines — her home network, what runs
+# on it, how it is exposed. Private, but NOT off-limits: unlike docs/jelena/
+# these were written for a future session to execute, so they must stay
+# readable. That is the whole reason they are here and not there.
+docs/ops/
+# other_agent.md is deliberately NOT listed: it is already tracked, so a rule
+# here would do nothing but mislead. It is excluded from the *public* repo by
+# the sync script instead — see docs/DEPLOY-HF.md.

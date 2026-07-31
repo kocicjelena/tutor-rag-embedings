@@ -1,6 +1,5 @@
 "use client";
 
-import { RECALL_UNLOCK_INTERACTIONS } from "./lib/constants";
 import type { ModelSource } from "./lib/types";
 import { SendIcon, SparkIcon } from "./Icons";
 
@@ -60,10 +59,7 @@ export function ChatComposer({
         ) : recallUnlocked ? (
           "Each answer is indexed, so your model can recall it later."
         ) : (
-          `Each answer is indexed. ${Math.max(
-            0,
-            RECALL_UNLOCK_INTERACTIONS - indexedLessons,
-          )} more to unlock recall.`
+          "Each answer is indexed. Your first lesson is enough to start recalling."
         )}
       </p>
 

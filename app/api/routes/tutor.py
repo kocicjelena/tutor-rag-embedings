@@ -15,20 +15,16 @@ server-side and owner-scoped, it survives the browser and keeps improving.
 """
 
 import logging
-import uuid
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import StreamingResponse
-from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CallerAnthropicKey, CurrentUser, SessionDep
 from app.models import (
     TUTOR_MODEL_FORMAT,
     TUTOR_MODEL_VERSION,
     ChunkResult,
-    Document,
-    DocumentChunk,
     TutorInteractionCreate,
     TutorInteractionPublic,
     TutorModelExport,
@@ -50,10 +46,8 @@ from app.services import rag, tutor_model
 from app.services.providers import (
     ProviderUnavailableError,
     get_chat_provider,
-    get_embedding_provider,
     resolve_model,
 )
-from app.services.tutor_model import TUTOR_FILE_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +93,16 @@ def _recall_prompt(context: str) -> str:
 
 @router.post("/teach")
 async def teach(
-    *, current_user: CurrentUser, body: TutorTeachRequest
+    *,
+    current_user: CurrentUser,
+    anthropic_key: CallerAnthropicKey,
+    body: TutorTeachRequest,
 ) -> StreamingResponse:
     """Stream a fresh explanation. No retrieval — this is the tutor teaching.
 
     The client records the completed exchange via POST /tutor/interactions.
     """
-    provider = get_chat_provider(body.provider)
+    provider = get_chat_provider(body.provider, api_key=anthropic_key)
     model = resolve_model(provider, body.model)
     system = _teach_prompt(body.term, body.mode, body.goals)
 
@@ -233,6 +230,7 @@ async def recall(
     *,
     session: SessionDep,
     current_user: CurrentUser,
+    anthropic_key: CallerAnthropicKey,
     body: TutorRecallRequest,
 ) -> TutorRecallResponse:
     """Answer from the learner's own history.
@@ -241,7 +239,7 @@ async def recall(
     they uploaded. That is deliberate: both are things they have been exposed to,
     and the source panel names each one, so provenance stays visible.
     """
-    provider = get_chat_provider(body.provider)
+    provider = get_chat_provider(body.provider, api_key=anthropic_key)
     model = resolve_model(provider, body.model)
 
     retrieval = await rag.retrieve(
@@ -252,7 +250,9 @@ async def recall(
     )
 
     if retrieval.empty:
-        topics = await _topics_for(session, current_user.id)
+        topics = await tutor_model.topics_for(
+            session=session, owner_id=current_user.id
+        )
         covered = (
             f" So far we've covered: {', '.join(topics)}." if topics else ""
         )
@@ -292,44 +292,14 @@ async def recall(
 
 # ──────────────────────────── stats ────────────────────────────
 
-async def _topics_for(session: SessionDep, owner_id: uuid.UUID) -> list[str]:
-    result = await session.execute(
-        select(Document.description)
-        .where(Document.owner_id == owner_id)
-        .where(Document.file_type == TUTOR_FILE_TYPE)
-        .distinct()
-    )
-    return sorted({row for row in result.scalars().all() if row})
-
-
 @router.get("/stats", response_model=TutorStats)
 async def stats(session: SessionDep, current_user: CurrentUser) -> TutorStats:
     """Corpus-derived progress.
 
     These are counts from the index, not a client-side tally — so the progress
-    cards report what the learner's model actually contains.
+    cards report what the learner's model actually contains. The same function
+    backs the `tutor_stats` MCP tool, so the page and an agent cannot disagree.
     """
-    interactions = (
-        await session.execute(
-            select(func.count())
-            .select_from(Document)
-            .where(Document.owner_id == current_user.id)
-            .where(Document.file_type == TUTOR_FILE_TYPE)
-        )
-    ).scalar_one()
-
-    chunks = (
-        await session.execute(
-            select(func.count())
-            .select_from(DocumentChunk)
-            .join(Document, DocumentChunk.document_id == Document.id)  # pyright: ignore[reportArgumentType]
-            .where(Document.owner_id == current_user.id)
-        )
-    ).scalar_one()
-
-    return TutorStats(
-        interactions=int(interactions),
-        topics=await _topics_for(session, current_user.id),
-        indexed_chunks=int(chunks),
-        embedding_model=get_embedding_provider().model,
+    return await tutor_model.corpus_stats(
+        session=session, owner_id=current_user.id
     )

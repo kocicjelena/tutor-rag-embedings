@@ -1,0 +1,341 @@
+# Continue here
+
+> ## Jelena — how to start the next session
+>
+> **Open a new session and say: `please read docs/CONTINUE.md`.**
+>
+> Not `/resume`. `/resume` reloads an entire previous conversation — every tool
+> call, every file I read, every dead end — before it can do anything. This
+> session ran long, so that is a large cost paid up front to recover context
+> that is already written down here, and it arrives cluttered with detail that
+> is no longer true.
+>
+> A fresh session loads `CLAUDE.md` automatically and reads this file in a few
+> seconds. That is the whole handover, deliberately.
+>
+> **`/resume` is the right tool for one case:** you stopped mid-task, within a
+> few hours, and the state that matters was never written down — a half-applied
+> edit, a debugging thread. That is not this. Everything from 2026-07-30 and
+> 2026-07-31 is in the docs.
+>
+> If a session ever *cannot* continue from this file, that is a bug in this
+> file. Tell me and I will fix it rather than reach for `/resume`.
+
+Last worked: **2026-07-31** — the vector layer (streaming ingestion, pluggable
+embedding provider, re-embed command), the agent's corpus primer, and the whole
+deployment path (Dockerfile, base image, two GitHub workflows). Before that,
+2026-07-30: the MCP layer, tool calling, bring-your-own-key, and the two tutor
+bugs. Before that: Milestone 1 end to end, the model export format (tier 1).
+
+## Read in this order
+
+1. `CLAUDE.md` — rules and the **Decided** list. Enough to start.
+2. `docs/DECISIONS.md` — what was deliberately **not** built, and why. Read it
+   before adding anything; it exists so the same arguments are not had twice.
+3. `docs/TODO.md` — what's next, and what's waiting on Jelena.
+4. Only if you need them: `docs/PLAN.md` (architecture, deployment, the model
+   format), `docs/DEPLOY-HF.md` (the Space), `other_agent.md` (what was broken),
+   `docs/MANUAL.md` (how to run and extend).
+
+> `docs/ops/` is private but **yours to read** — infrastructure plans for
+> Jelena's own machines, written for a session to execute.
+
+> `docs/jelena/` and `docs/jelena/ORIGINAL_BRIEF.md` are **off-limits** — Jelena's own
+> reminders, not session input. Everything that governs the code has been lifted out
+> of them already.
+
+## What works
+
+Upload a document → embedded locally by Ollama → ask → answer streams back grounded
+in your text with `[1]` citations, from **Ollama or Claude, your pick**.
+
+`/tutor` in the web app: Claude (or Ollama) teaches, every exchange is indexed, and
+"My model" answers by semantic retrieval over the learner's own lessons. Verified
+live — word overlap scored 0.111 on a real question (below its own 0.2 cutoff, so it
+would refuse), while retrieval put the right lesson first at 0.519.
+
+MCP: four tools over the learner's own material, a client that speaks the real
+protocol, and `GET /mcp/tools` · `POST /mcp/call` to see and drive them.
+
+Tools: Claude decides what to search, the loop runs it over MCP, and every call
+appears in the trace panel.
+
+- `uv run fastapi dev app/main.py` + `cd web && npm run dev`
+- **159 tests** (~40 s, no network), `pyright` strict clean, `tsc` clean
+- Verified against live Ollama, direct and through the Next.js proxy
+
+Not built yet: Ollama tool calling, rate limiting (Milestone 4), deployment,
+registration + federated login.
+
+## Latest: the model export format — tier 1 ✅
+
+"The model" is the learner's corpus: the lessons they were taught, plus metadata.
+Confirmed with Jelena. The reasoning — including why GGUF is a *different object*
+rather than another way of writing the same thing — is in `PLAN.md` §7.
+
+- `app/services/tutor_model.py` — record / export / import. **One code path**:
+  `record_lesson` is the only way a lesson enters the corpus, whether it arrives from
+  `POST /interactions`, from an imported file, or from a seed fixture.
+- `TutorLesson` keeps each exchange verbatim. The indexed chunks overlap, so the
+  original cannot be reassembled by joining them — hence a second copy. A new *table*
+  rather than new columns on `Document`, because `create_all` adds missing tables but
+  never missing columns, and there are no migrations here.
+- `GET /tutor/model/export` → `tutor-model.json`. No vectors, no learner identity.
+- `POST /tutor/model/import` → re-embeds; **`owner_id` from the token, never the file**.
+
+**Gap to know about:** lessons recorded before this change have no `TutorLesson` row
+and will not export. They still recall normally.
+
+## Latest: the MCP layer ✅
+
+Full design in `docs/MCP.md`. `app/mcp/` is four files: `context.py` (the tenant
+boundary), `tools.py` (the tool bodies, with no MCP import), `server.py` (FastMCP
+plus the descriptions, which are prompt text), `client.py` (a real client session).
+
+Three things worth carrying forward, all of them in the hard rules now:
+
+- **No tool takes an owner.** A tool's arguments are chosen by the model, so an
+  `owner_id` parameter is untrusted input, not identity. The caller is read from a
+  context variable only an authenticated route can set. Two tests assert on the
+  *shape* — no owner-ish property in any tool's JSON Schema, no `session`/`owner_id`
+  in any tool signature — because a regression here would be silent.
+- **Never open an MCP session outside `client.tool_session`.** The caller must be
+  bound before the server task spawns, or anyio's context copy misses it and every
+  call reads whichever user arrived first.
+- **Nothing raises inside a session block** — an anyio task group wraps it in an
+  `ExceptionGroup`, so `except UnknownToolError` in a route never fires. Cost us one
+  debugging round already.
+
+## Latest: identity, and who pays for Claude ✅
+
+Full record and the AWS/Auth0 checklist: **`docs/AUTH.md`**.
+
+Users bring their **own** Anthropic key, so their Claude usage is billed to
+them. This is what makes a public deploy possible at all — on Spaces there is
+no Ollama, so Claude is the only generator, and `PLAN.md` §6's "open invoice"
+was otherwise unavoidable.
+
+**The correction that shaped it:** a hash is one-way, so "store it hashed" and
+"bill the user with it" cannot both be true. What is stored is `sha256` + a
+fingerprint, neither usable; the real key lives in an httpOnly *session* cookie
+and travels per request as `X-Anthropic-Key`. Encrypting at rest was rejected —
+reversible means the app can read every user's key, which is the thing being
+avoided.
+
+**Three identifiers now exist and must not be mixed** (table in `CLAUDE.md`):
+`User.id` is `owner_id` everywhere, `public_id` is the one-way HMAC handle for
+URLs only, email is for login. `public_id` matches no row, so using it as an
+owner fails *silently*. `ToolContext.owner_id` is typed `uuid.UUID` so the
+handle cannot slip in, and the MCP shape test now rejects `public_id` and
+`handle` as tool arguments.
+
+## Latest: the vector layer ✅ — both proposals built, `docs/VECTORS.md`
+
+**Streaming ingestion.** Your `send()`/`close()` idea, in the form that can
+`await`: PEP 342 generators are synchronous, so the pipeline uses PEP 525's
+`asend()`/`aclose()`. `app/services/ingest_stream.py` — prime with
+`anext(sink)`, feed chunks, `aclose()` flushes the partial batch and commits.
+Peak memory is one batch instead of one document. Upload uses it; the tutor
+does not, because one short lesson gains nothing.
+
+The trap that would have cost a day is handled and documented: `upsert_chunks`
+begins with a delete, so calling it per batch would keep only the last batch
+with no error. The delete is hoisted into `vectors.begin_document`.
+
+**Pluggable `EmbeddingProvider`.** One `vec0` index per width;
+`vec_chunks` keeps its name, so nothing migrated. `EMBEDDING_PROVIDER` chooses
+Ollama or sentence-transformers (behind `uv sync --extra local-embed`, never a
+default — torch is ~2 GB).
+
+**Your decision, applied:** mark what the active model cannot search, and offer
+a re-embed command. Never merge results across embedding spaces — the scores
+are not on a common scale, so the ranking would look fine and mean nothing.
+`indexed_with` + `searchable` on `GET /documents/`, a badge in the UI,
+`uv run python -m app.scripts.reembed --dry-run`.
+
+**One thing found while building:** vec0 creates its own shadow tables sharing
+the prefix (`vec_chunks_rowids`, `vec_chunks_info`, …), so the per-width suffix
+carries a `d` — `vec_chunks_d384` — and "list every index" filters on
+`sql LIKE '%USING vec0%'` as well as the name. Two tests pin it.
+
+**Not verified:** the sentence-transformers provider has never actually run —
+the extra is not installed here. Treat it as untested.
+
+## Latest: the agent primer ✅ — your answer to "the agent costs more"
+
+`agent.build_primer`. An agent's cost is measured in **rounds**, and the
+cheapest round is the one that never happens. A cold agent spends one on
+`tutor_stats` or `list_documents` learning facts this app reads from its own
+database in milliseconds — so they now go into the system prompt up front:
+lessons, uploads, indexed passages, topic names.
+
+**The boundary that matters:** the primer is facts, never instructions. Topic
+names come from documents a user uploaded, so a document titled *"ignore
+previous instructions and…"* must arrive as a title. They are capped, framed
+inside one sentence, and labelled as data; a test uses a hostile title.
+
+It fails soft — if the read errors the agent runs unprimed — and a caller that
+passes an explicit `system` is not primed at all.
+
+## Tool calling ✅ — the panel is no longer empty
+
+`app/services/agent.py` + `POST /query/agent`, with a "let the model use tools"
+toggle on `/`. Claude picks the tools, the loop runs them over MCP, and every call
+appears in `ToolTrace` — the component needed no change, which was the point of
+defining the event protocol first.
+
+- **A separate route, not a flag on `/query/stream`.** The agent is slower and costs
+  more tokens; making it a mode would tax every plain question.
+- **`ToolCallingProvider` is a second, optional Protocol.** Tool use depends on the
+  model, not the provider, so requiring it on `ChatProvider` would break Ollama or
+  fill it with raising stubs. `/query/agent` returns a clean 422 naming the
+  alternative.
+- The loop's types are provider-neutral; Anthropic's block format lives in
+  `claude_provider._to_anthropic`. A third provider changes nothing in the loop.
+- `MAX_TOOL_ROUNDS = 5` is a ceiling against a model that searches forever on the
+  user's balance. A failed tool goes back to the **model**, not the user.
+
+## Latest: the deployment path ✅ built, never run
+
+Full plan and a candid assessment of it: **`docs/DEPLOY-HF.md`**.
+
+**One private repo, filtered at deploy time.** An earlier draft argued for a
+second generated repo; the reason given was wrong — `related/`, `docs/jelena/`
+and `rag.db` were all gitignored and never in git. One repo removes the real
+risk, which was divergence. The Space is public regardless of the repo's
+visibility, so `.github/workflows/deploy-space.yml` strips `.claude/`,
+`.CLAUDE.md`, `other_agent.md`, `docs/jelena/` and `docs/ops/` before pushing.
+
+**The Ollama base image is separate** (`deploy/ollama-base/`), on GHCR, built
+manually plus monthly. Ollama's Linux release is 1.36 GB — mostly GPU runners
+that cannot execute on a CPU Space — so it is pruned, and the build prints the
+before and after rather than asserting a number. The same base serves the Space
+and the laptop.
+
+**Nothing has been built.** There is no Docker on this machine. Two dry runs
+were possible and both earned their keep: the `.dockerignore` was simulated
+against the real tree (738 MB working tree → 1.0 MB build context, with `.env`,
+`rag.db` and `related/` confirmed excluded), and the process supervision in
+`start.sh` was smoke-tested with fake processes, which found a real bug —
+under `set -e`, a bare `wait -n` returning non-zero kills the script *at that
+line*, so the log explaining which process died never printed.
+
+**Two things Jelena must do before anything deploys:** run the base-image
+workflow and make the GHCR package **public** (private is the default and
+Hugging Face pulls anonymously), then create the Space and set `HF_TOKEN` and
+`HF_SPACE`.
+
+## Next step
+
+Jelena postponed the whole *"what is next"* list in `MCP.md` — her note there
+reads **"not in milestone"**. So Ollama tool calling, the `/api/mcp/*` proxy and
+the outward transport are queued, not next.
+
+**Next is the first real build**, and it is Jelena's move, not a coding task:
+run the base-image workflow, make the GHCR package public, create the Space,
+push. The unknowns all live there, and everything else is easier once a Space
+exists — see `DEPLOY-HF.md` "Order of work" steps 4 and 5.
+
+After that, in her stated order of interest: **tier 1 has no UI** (a download
+button and a drop-target on `/tutor`), then tier 2 (`Modelfile` export),
+seed-on-startup, and rate limiting before the URL is shared.
+
+**One cheap CI change worth making early:** `deploy-space.yml` pushes on any
+commit to `main` with no test gate. 159 tests run in ~40 s with no network.
+They should run first and block the push. Recorded in `DECISIONS.md` as an
+omission rather than a decision.
+
+**`ToolCallingProvider` is not a dead end** — worth stating, because it read
+that way. It is the interface the agent loop is written against and the only
+reason `POST /query/agent` works: Claude implements `stream_turn`, `agent.run`
+takes one, and every tool call in the trace arrives through it. It is
+*optional* only in the sense that a provider need not implement it — which is
+what keeps Ollama working instead of stubbed. Adding Ollama tool calling means
+implementing this interface and nothing else.
+
+## Two tutor bugs Jelena reported — both fixed 2026-07-30
+
+**The streaming answer scrolled out of view.** `/` had no auto-scroll at all;
+`/tutor` had one, but with `behavior: "smooth"`, which cannot keep up with a token
+stream — each token restarted the animation and the view fell further behind. Now
+both use `web/hooks/useStickToBottom.ts`: instant while streaming, smooth once
+settled, and it stops following the moment the reader scrolls up.
+
+**Locked out of "My model" with 2 lessons indexed.** `RECALL_UNLOCK_INTERACTIONS`
+was 3. That was my call and it was wrong — a learner with two lessons has a working
+model, and the gate told them they could not use it. It is 1 now: the corpus is the
+gate. There was never anything to protect them from, because `POST /tutor/recall`
+already answers honestly on a thin corpus (it says what it has not been taught and
+names what it has). Proficiency now uses its own `BEGINNER_INTERACTIONS = 3`; the two
+had been sharing one constant, which is why they were coupled at all.
+
+## Deployment — decided, not built
+
+`PLAN.md` "Deployment" has the reasoning. The short form:
+
+- **One Docker image**: Next.js on the public port, FastAPI and Ollama on localhost.
+  Free on Hugging Face Spaces now; the *same image* on one ~€5/month VPS later.
+- **Not Vercel** for this project (it solves the easy half — Ollama is the hard half),
+  **not EC2** for any project here (same work as a VPS, 2–4× the cost, expiring free
+  tier, and none of what AWS charges its premium for is in use).
+- **Why a model server is unavoidable:** embedding is Ollama-only and runs on the
+  *write* path — the tutor embeds every lesson as it is recorded.
+- **SQLite in deployment is a filesystem question, not a database one.** One writer,
+  so never scale past one replica; `sqlite3 .backup` while running, not `cp`;
+  `vec_chunks` lives in the same file, so the vectors travel with the data.
+- **Rate limiting must land before the deploy**, not after — a public URL with uploads
+  and paid Claude calls behind it is an open invoice.
+
+## Two traps, already paid for
+
+- **The sqlite-vec loading in `app/core/db.py` looks over-complicated. It isn't.**
+  Two simpler forms fail: the SQLAlchemy adapter has no `enable_load_extension`, and
+  calling it on the raw connection raises `ProgrammingError` because aiosqlite owns
+  that object in a private worker thread. `test_sqlite_vec_loaded` pins it. Don't
+  "simplify" it.
+- **A green test suite is not enough for the RAG pipeline.** A chunking bug turned a
+  286-character document into 201 chunks and passed every test. It showed up only in
+  the numbers from a real upload. After touching chunking or ingestion, upload
+  something and check chunk count against document length.
+
+## Things not to re-derive
+
+- Anthropic has **no embeddings API** — that is why there are two provider Protocols,
+  not one. Not an oversight.
+- **Claude generates; retrieval enhances.** Claude is what the learner uses to build
+  their model; embedding came afterwards, as the layer that makes the corpus
+  retrievable. "The model" is that corpus — not an ML model trained in the browser.
+  The app's job is to let a user make their model, build it up, and download it.
+- `vec0` specifics, verified: multi-value `IN` on metadata works; the primary key *is*
+  enforced, so re-ingestion deletes before inserting.
+- **No NVIDIA GPU on this machine** (Intel iGPU, 12 cores, 23 GB RAM) — which is why
+  `llama3.1:8b` takes ~180 s for one sentence, and why any fine-tuning (tier 3) has to
+  run on a free Colab/Kaggle T4, never here and never on the free Space.
+
+## How `/tutor` is wired — the answer to your question
+
+Three server moves, and a client that decides which one to make.
+
+**Teach** (`POST /tutor/teach`) is generation only. No retrieval: the tutor is
+supposed to explain something new, and searching your corpus first would just
+prime it with what you already know. It streams SSE, so text appears as it is
+written.
+
+**Record** (`POST /tutor/interactions`) takes the finished exchange and indexes it:
+chunk → embed → store the vector under your `owner_id`, plus one `TutorLesson` row
+keeping the exchange verbatim. Done **synchronously**, unlike file upload, because
+you might switch to recall immediately afterwards and a background job would make
+the model look forgetful.
+
+**Recall** (`POST /tutor/recall`) is the opposite shape: retrieval first, then
+generation constrained to what came back. It searches everything you own — lessons
+*and* uploads, since both are things you have been exposed to — and the prompt tells
+the model to answer only from those, cite them, and admit a gap rather than guess.
+
+The counters are read from the index (`GET /tutor/stats`), not tallied in the
+browser, which is why they survive a new browser profile. The learning model in
+`localStorage` — proficiency, topic mastery, the vocabulary chart — is the dashboard
+layer and is cosmetic; the real corpus is server-side.
+
+The lock you hit was a fourth thing, purely client-side, and it is gone: see the bug
+note above.

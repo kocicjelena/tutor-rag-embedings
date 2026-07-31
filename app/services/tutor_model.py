@@ -21,7 +21,7 @@ import logging
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import func, select
 
 from app import crud
 from app.core.config import settings
@@ -29,11 +29,13 @@ from app.models import (
     TUTOR_MODEL_FORMAT,
     TUTOR_MODEL_VERSION,
     Document,
+    DocumentChunk,
     TutorLesson,
     TutorLessonExport,
     TutorModelExport,
     TutorModelImportResult,
     TutorModelMeta,
+    TutorStats,
 )
 from app.services import rag
 from app.services.providers import ProviderUnavailableError, get_embedding_provider
@@ -151,6 +153,54 @@ async def build_export(
             )
             for lesson in lessons
         ],
+    )
+
+
+async def topics_for(
+    *, session: AsyncSession, owner_id: uuid.UUID
+) -> list[str]:
+    """Distinct lesson topics in this learner's corpus, alphabetically."""
+    result = await session.execute(
+        select(Document.description)
+        .where(Document.owner_id == owner_id)
+        .where(Document.file_type == TUTOR_FILE_TYPE)
+        .distinct()
+    )
+    return sorted({row for row in result.scalars().all() if row})
+
+
+async def corpus_stats(
+    *, session: AsyncSession, owner_id: uuid.UUID
+) -> TutorStats:
+    """Progress read from the index, not from a client-side tally.
+
+    Lives here rather than in the route because two callers need it: `GET
+    /tutor/stats` and the `tutor_stats` MCP tool. One implementation means the
+    number an agent reports can never drift from the number on the page.
+    """
+    interactions = (
+        await session.execute(
+            select(func.count())
+            .select_from(Document)
+            .where(Document.owner_id == owner_id)
+            .where(Document.file_type == TUTOR_FILE_TYPE)
+        )
+    ).scalar_one()
+
+    chunks = (
+        await session.execute(
+            select(func.count())
+            .select_from(DocumentChunk)
+            .join(Document, DocumentChunk.document_id == Document.id)  # pyright: ignore[reportArgumentType]
+            .where(Document.owner_id == owner_id)
+        )
+    ).scalar_one()
+
+    return TutorStats(
+        interactions=int(interactions),
+        topics=await topics_for(session=session, owner_id=owner_id),
+        indexed_chunks=int(chunks),
+        embedding_model=get_embedding_provider().model,
     )
 
 

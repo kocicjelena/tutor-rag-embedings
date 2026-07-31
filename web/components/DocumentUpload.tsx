@@ -92,6 +92,24 @@ export default function DocumentUpload({ signedIn }: { signedIn: boolean }) {
             <span className="grow" title={doc.error_message ?? undefined}>
               {doc.title}
             </span>
+            {/*
+              Marked, not hidden. A document indexed by a different embedding
+              model is unreachable by search — vectors from two models are not
+              comparable — and saying so is better than letting it sit in the
+              list looking findable.
+            */}
+            {!doc.searchable && (
+              <span
+                className="badge warn"
+                title={
+                  `Indexed with ${doc.indexed_with ?? "another model"}, ` +
+                  "which is not the model in use. Search cannot reach it until " +
+                  "it is re-embedded."
+                }
+              >
+                not searchable
+              </span>
+            )}
             <span className={`badge ${STATUS_CLASS[doc.status]}`}>
               {doc.status === "ready" ? `${doc.chunk_count} chunks` : doc.status}
             </span>
@@ -102,6 +120,14 @@ export default function DocumentUpload({ signedIn }: { signedIn: boolean }) {
       {docs.some((d) => d.status === "error") && (
         <p className="hint" style={{ marginTop: 8 }}>
           Hover a failed document for the reason.
+        </p>
+      )}
+
+      {docs.some((d) => !d.searchable) && (
+        <p className="hint" style={{ marginTop: 8 }}>
+          Some documents were indexed with a different embedding model, so search
+          cannot reach them. Run{" "}
+          <code>uv run python -m app.scripts.reembed</code> to fix that.
         </p>
       )}
     </div>

@@ -19,13 +19,15 @@ have been taught, which the app can answer from and which you can export and dow
 > tested, and the parts marked *available* below genuinely work — but it is **not
 > finished and not production software.**
 >
-> In particular, and despite the project's name: **the MCP layer is not built yet.**
-> There is no MCP server and no MCP client. The event protocol and the tool-execution
-> panel in the UI are in place and waiting for it, which is why that panel is always
-> empty. See *Not working yet* below — nothing there is hidden.
+> The **MCP layer works end to end**: an MCP server with four tools, a Python
+> client that speaks the real protocol, and an agent loop where Claude decides
+> which tools to run — with every call shown in the app as it happens.
 >
-> Expect things to change. There are no migrations, no rate limiting, and no
-> deployment yet.
+> What is not finished: Ollama cannot call tools yet (Claude can), there is no
+> sign-up screen, and nothing is deployed. See *Not working yet* below —
+> nothing there is hidden.
+>
+> Expect things to change. There are no migrations and no rate limiting yet.
 
 ---
 
@@ -84,6 +86,7 @@ Runs on `http://localhost:8000`. Interactive docs at `/docs`.
 | `DELETE` | `/api/v1/documents/{id}` | ✓ | Delete a document and everything indexed from it |
 | `POST` | `/api/v1/query/` | ✓ | Ask a question, get the whole answer at once |
 | `POST` | `/api/v1/query/stream` | ✓ | Ask a question, get the answer as it is written |
+| `POST` | `/api/v1/query/agent` | ✓ | Let the model choose which tools to run, and watch it work |
 | `POST` | `/api/v1/tutor/teach` | ✓ | The tutor explains a topic, streamed |
 | `POST` | `/api/v1/tutor/interactions` | ✓ | Save one lesson into your model |
 | `POST` | `/api/v1/tutor/recall` | ✓ | Answer from your own lessons only |
@@ -91,6 +94,15 @@ Runs on `http://localhost:8000`. Interactive docs at `/docs`.
 | `GET` | `/api/v1/tutor/model/export` | ✓ | Download your model as a JSON file |
 | `POST` | `/api/v1/tutor/model/import` | ✓ | Load a model file back in |
 | `GET` | `/api/v1/providers/` | ✓ | Which models you can currently choose from |
+| `GET` | `/api/v1/keys/anthropic` | ✓ | Do you have a key on file, and does the app have one of its own |
+| `PUT` | `/api/v1/keys/anthropic` | ✓ | Hand over your own Anthropic key — checked, hashed, plaintext dropped |
+| `DELETE` | `/api/v1/keys/anthropic` | ✓ | Forget it |
+| `GET` | `/api/v1/mcp/tools` | ✓ | The MCP tool catalogue — what a model would be offered |
+| `POST` | `/api/v1/mcp/call` | ✓ | Run one MCP tool yourself, as you |
+
+`GET /api/v1/documents/` also tells you `indexed_with` (which embedding model
+produced a document's vectors) and `searchable` — see *Changing the embedding
+model* below.
 
 ## Frontend API — Next.js
 
@@ -100,7 +112,8 @@ login token stays on the server and never reaches the browser.
 | Method | Path | Talks to |
 |---|---|---|
 | `POST` `DELETE` `GET` | `/api/auth` | sign in · sign out · am I signed in |
-| `POST` | `/api/chat` | `/query/stream` |
+| `POST` | `/api/chat` | `/query/stream`, or `/query/agent` when tools are on |
+| `GET` `PUT` `DELETE` | `/api/keys` | your own Anthropic key |
 | `GET` `POST` | `/api/documents` | list documents · upload |
 | `GET` | `/api/providers` | `/providers/` |
 | `POST` | `/api/tutor/teach` | `/tutor/teach` |
@@ -116,12 +129,63 @@ Stated plainly, because some of it is visible in the app and would otherwise loo
 
 | Feature | What you see | Why |
 |---|---|---|
-| **Tool execution panel** on `/` | Always says *"No tools invoked"* | This panel exists to display MCP tool calls. **MCP is not built yet**, so nothing ever produces one. The panel is correct — there is genuinely nothing to show. |
+| **Tools with Ollama** | The checkbox works only with Claude | Claude can call tools; the Ollama path is not written yet. Picking Ollama with tools on returns a clear message rather than failing quietly. |
 | **Download / upload your model** | No button anywhere | The API works and is tested, but the frontend does not reach it yet. For now it is usable only with the API directly. |
 | **Delete a document** | No button anywhere | Same: `DELETE /api/v1/documents/{id}` works, the UI does not offer it. |
 | **Managing users** | No screen at all | User accounts are created from `.env` at startup. There is no sign-up page and no admin screen. |
 
-Also missing, and planned: the MCP server and client, rate limiting, and deployment.
+Also missing, and planned: Ollama tool calling, a sign-up screen with federated
+login, rate limiting, and deployment.
+
+### Using your own Anthropic key
+
+Claude usage can be billed to **your** Anthropic account rather than the app's.
+Paste a key into *Claude access* on the main page and:
+
+- only a one-way hash and the last four characters are stored — neither can call
+  Anthropic;
+- the key itself stays in your browser session, is sent with each request, and is
+  dropped when you close the browser or sign out;
+- because it is never written down, you add it again next session.
+
+To be exact: the key passes through the server's memory when it makes the call —
+it has to, that is what making the call means. What the app never does is *keep*
+it.
+
+### Changing the embedding model
+
+Embedding is always local — Anthropic has no embeddings API — but *which* local
+model is yours to choose: Ollama by default, or sentence-transformers with
+`uv sync --extra local-embed` (~2 GB of torch, which is why it is optional).
+
+Switching does not corrupt anything. Each vector width gets its own index, so
+nothing is overwritten. What it does do is make everything indexed under the
+old model **unsearchable** — vectors from two models are not comparable, so
+search cannot reach them. The app says so rather than quietly returning
+nothing: those documents are marked *not searchable* in the list. To put them
+back:
+
+```bash
+uv run python -m app.scripts.reembed --dry-run   # what would change
+uv run python -m app.scripts.reembed             # do it
+```
+
+It re-embeds the passages already stored, so it works even though this app
+keeps no copy of your original file.
+
+### What the MCP tools do
+
+These are what Claude calls when you tick *Let the model use tools*, and you can
+run them by hand through `POST /api/v1/mcp/call`. Everything they return is
+scoped to you — no tool takes a user or owner argument, and none can be given
+one.
+
+| Tool | What it does |
+|---|---|
+| `search_documents` | Semantic search across your documents and lessons |
+| `list_documents` | What you own, each marked *lesson* or *upload* |
+| `get_document` | One document, as the chunks it was indexed into |
+| `tutor_stats` | How much your model holds: lessons, topics, chunks |
 
 ## Known limits
 
@@ -142,17 +206,17 @@ Also missing, and planned: the MCP server and client, rate limiting, and deploym
 | API | FastAPI + SQLModel, async throughout |
 | Database | SQLite — no server, no Docker, runs anywhere |
 | Vectors | `sqlite-vec`, stored in the same file as the data |
-| Embeddings | Ollama `nomic-embed-text`, always local |
+| Embeddings | Ollama `nomic-embed-text` by default, always local, swappable |
 | Answers | Ollama **or** Claude, chosen per request |
 | Frontend | Next.js 16 (App Router) |
 | Types | `pyright` strict, TypeScript strict |
 
 ```bash
-uv run pytest      # 73 tests, no network needed
+uv run pytest      # 159 tests, no network needed
 uv run pyright     # strict type checking
 ```
 
-More detail lives in `docs/` — `API.md` (every route), `PLAN.md` (why it is built this
+More detail lives in `docs/` — `API.md` (every route), `MCP.md` (the tool layer), `AUTH.md` (identity and keys), `PLAN.md` (why it is built this
 way, including deployment), `MANUAL.md` (user and developer guide), `TODO.md` (what is
 next).
 

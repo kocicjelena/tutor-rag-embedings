@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import AnthropicKeyPanel from "@/components/AnthropicKeyPanel";
 import ChatStream from "@/components/ChatStream";
 import DocumentUpload from "@/components/DocumentUpload";
 import ProviderPicker from "@/components/ProviderPicker";
@@ -115,6 +116,9 @@ export default function Home() {
             onProviderChange={setProvider}
             onModelChange={setModel}
           />
+          {/* Adding or removing a key changes which providers are usable, so
+              reload the picker rather than leaving it stale. */}
+          <AnthropicKeyPanel onChanged={() => void loadProviders()} />
           <DocumentUpload signedIn={signedIn} />
         </aside>
       </div>

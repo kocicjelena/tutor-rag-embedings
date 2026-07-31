@@ -11,8 +11,9 @@ Two structural changes from the inherited schema:
 
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 
+from pydantic import computed_field
 from sqlmodel import Field, Relationship, SQLModel
 
 ProviderName = Literal["ollama", "claude"]
@@ -65,6 +66,19 @@ class UserUpdate(UserUpdateMe):
 class UserPublic(UserBase):
     id: uuid.UUID
 
+    @computed_field
+    @property
+    def public_id(self) -> str:
+        """The derived, shareable handle — see `app/core/identity.py`.
+
+        Computed rather than stored, so it cannot drift from the email and
+        there is no column to migrate. `id` stays the internal key; this is the
+        one safe to put in a URL, because it is one-way and reveals no address.
+        """
+        from app.core.identity import derive_public_id
+
+        return derive_public_id(self.email)
+
 
 class UsersPublic(SQLModel):
     data: list[UserPublic]
@@ -107,6 +121,17 @@ class DocumentPublic(DocumentBase):
     chunk_count: int
     status: str
     error_message: str | None = None
+
+    # Which embedding model indexed this document, read from its chunk rows
+    # (`crud.get_embedding_models`) rather than stored on the row — there are no
+    # migrations here, so a new Document column would not exist on an existing
+    # database. None while it is still pending.
+    indexed_with: str | None = None
+    # False when it was indexed by a model other than the active one. Vectors
+    # from two models are not comparable, so search cannot reach it — and the
+    # honest answer is to say so rather than return nothing and look empty.
+    # `uv run python -m app.scripts.reembed` is the fix.
+    searchable: bool = True
 
 
 class DocumentsPublic(SQLModel):
@@ -340,6 +365,108 @@ class TutorModelImportResult(SQLModel):
     skipped: int
     indexed_chunks: int
     embedding_model: str
+
+
+# ─────────────────── Bring-your-own Anthropic key ───────────────────
+#
+# The user supplies their own Anthropic key so **their** account is billed for
+# Claude, not this app's. What is kept here is deliberately not enough to make
+# an API call:
+#
+#   * `key_sha256`    — recognises the same key again (rotation, "is this the
+#                       one you already gave me?"). One-way.
+#   * `fingerprint`   — for display: "sk-ant-…AB12". Never enough to use.
+#
+# **The plaintext is never persisted.** It lives in the caller's session and
+# arrives on each request as a header, is used, and is dropped. A dump of this
+# table is worth nothing to an attacker — that is the entire point, and the
+# reason this is not an "encrypted key" column.
+#
+# A separate TABLE rather than columns on `User`: `create_all` adds missing
+# tables but never missing columns, and there are no migrations here. Same
+# reasoning as `TutorLesson`.
+
+class UserApiKey(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    # Only "anthropic" today. Present so a second paid provider does not need a
+    # second table.
+    provider: str = Field(default="anthropic", max_length=50, index=True)
+    key_sha256: str = Field(max_length=64)
+    fingerprint: str = Field(max_length=32)
+    created_at: datetime = Field(default_factory=_utcnow)
+    last_used_at: datetime | None = None
+
+
+class UserApiKeyCreate(SQLModel):
+    """Hand over a key. The plaintext leaves again immediately — it is verified
+    against Anthropic, hashed, and dropped."""
+
+    api_key: str = Field(min_length=8, max_length=512)
+
+
+class UserApiKeyPublic(SQLModel):
+    """What the owner may see about their own key. Never the key."""
+
+    provider: str
+    fingerprint: str
+    created_at: datetime
+    last_used_at: datetime | None = None
+
+
+class UserApiKeyStatus(SQLModel):
+    configured: bool
+    key: UserApiKeyPublic | None = None
+    # True when this app has its own key and is willing to spend it. False on a
+    # public deploy, where a user without their own key simply cannot use Claude.
+    app_key_fallback: bool
+
+
+# ──────────────────────────── MCP ────────────────────────────
+#
+# The wire shapes for `/mcp/...`. They mirror MCP's own `tools/list` and
+# `tools/call` closely on purpose: this surface exists so the frontend and a
+# human can see exactly what a model sees, and a translation layer that
+# prettified it would defeat that.
+
+class MCPToolInfo(SQLModel):
+    name: str
+    title: str | None = None
+    description: str | None = None
+    # JSON Schema, straight from the server. The frontend renders it as the
+    # tool's signature, and an agent hands it to the provider unchanged.
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+
+
+class MCPToolsPublic(SQLModel):
+    server: str
+    instructions: str | None = None
+    tools: list[MCPToolInfo]
+    count: int
+
+
+class MCPCallRequest(SQLModel):
+    """Invoke one tool by name.
+
+    There is no owner field, and there must never be one — see
+    `app/mcp/context.py`. The caller is the bearer token.
+    """
+
+    name: str = Field(min_length=1, max_length=100)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class MCPCallResult(SQLModel):
+    name: str
+    arguments: dict[str, Any]
+    # False for a tool that refused or failed. Still HTTP 200: a failed tool
+    # call is a result the model reads and recovers from, not a broken request.
+    ok: bool
+    text: str
+    structured: dict[str, Any] | None = None
+    duration_ms: int
 
 
 # ──────────────────────────── Auth ────────────────────────────

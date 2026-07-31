@@ -1,0 +1,66 @@
+# Everything here is either rebuilt inside the image, secret, or enormous.
+#
+# Without this file the build context is ~800 MB (node_modules alone is 360 MB)
+# and — much worse — `.env` and `rag.db` would be uploaded to the Docker daemon
+# and land in a layer. On a public Space that is the whole game.
+
+# ── Never, under any circumstances ────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/
+
+# Reference projects: a checked-in virtualenv and, until rotated, live
+# credentials. Same reasoning as .gitignore.
+related/
+
+# Private notes and the home-infrastructure plans.
+docs/jelena/
+docs/ops/
+
+# ── Rebuilt inside the image ──────────────────────────────────────────────
+# Both forms on purpose. Docker excludes a matched directory's contents, so the
+# first line is enough for it — the second removes any doubt, and makes the rule
+# survive a tool that matches files rather than directories.
+**/node_modules
+**/node_modules/**
+web/.next
+web/out
+.venv
+**/__pycache__
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+web/tsconfig.tsbuildinfo
+
+# ── Not needed at runtime ─────────────────────────────────────────────────
+.git
+.github
+.claude
+.CLAUDE.md
+tests/
+other_agent.md
+Dockerfile
+.dockerignore
+README.md
+docs/
+
+# `docs/` is excluded from the *image* only — it is not needed to run the app
+# and would invalidate the layer cache on every documentation edit. It is still
+# published to the Space by the deploy workflow, which copies the repo rather
+# than the image. Two different things, easy to confuse.
+
+# ── Editors / OS ──────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+*.swp

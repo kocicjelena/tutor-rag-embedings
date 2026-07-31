@@ -54,6 +54,15 @@ export interface DocumentInfo {
   char_count: number;
   error_message: string | null;
   created_at: string;
+  /** Which embedding model indexed it. Null while it is still pending. */
+  indexed_with: string | null;
+  /**
+   * False when a different embedding model indexed it. Vectors from two models
+   * are not comparable, so search genuinely cannot reach it — the list says so
+   * rather than quietly returning nothing. Fixed by
+   * `uv run python -m app.scripts.reembed`.
+   */
+  searchable: boolean;
 }
 
 /** A tool invocation paired with its result, for the trace panel. */

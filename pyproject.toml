@@ -24,6 +24,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# A second embedding provider, proving the seam in `providers/base.py` is real
+# rather than asserted. Optional on purpose: torch is ~2 GB of wheels against a
+# project whose selling point is `uv sync` and go. It must never become a
+# default dependency.
+#   uv sync --extra local-embed
+local-embed = [
+    "sentence-transformers>=3.0.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",

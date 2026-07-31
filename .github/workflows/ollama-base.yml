@@ -1,0 +1,108 @@
+# Build the Ollama base image and push it to GHCR.
+#
+# Deliberately NOT on every push. This image changes only when the Ollama
+# version or the embedding model changes, and the build downloads well over a
+# gigabyte — running it on every commit would waste minutes for nothing.
+#
+# Run it by hand from the Actions tab, or let the monthly schedule pick up
+# Ollama security fixes.
+#
+# GHCR rather than Docker Hub, for one concrete reason: Docker Hub rate-limits
+# anonymous pulls per IP, and Hugging Face builds from shared runners. A Space
+# rebuild that fails with "toomanyrequests" at an unpredictable moment is a bad
+# way to find that out. GHCR has no such limit for public images, and the
+# GITHUB_TOKEN already has permission to write to it.
+
+name: Ollama base image
+
+on:
+  workflow_dispatch:
+    inputs:
+      ollama_version:
+        description: Ollama release tag
+        default: v0.32.5
+      embed_model:
+        description: Model to bake in
+        default: nomic-embed-text
+  schedule:
+    - cron: "0 4 1 * *"   # 04:00 on the 1st of each month
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/mcp-py-ollama
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free up runner disk
+        # The unpacked Ollama release plus the model plus image layers is more
+        # than a default runner comfortably holds. Removing toolchains this job
+        # never uses buys ~25 GB and takes under a minute.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve inputs
+        id: cfg
+        run: |
+          echo "version=${{ inputs.ollama_version || 'v0.32.5' }}"      >> "$GITHUB_OUTPUT"
+          echo "model=${{ inputs.embed_model || 'nomic-embed-text' }}"  >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy/ollama-base
+          load: true                      # into the local daemon, so verify can run
+          push: false
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.cfg.outputs.model }}
+            ${{ env.IMAGE }}:${{ steps.cfg.outputs.model }}-${{ steps.cfg.outputs.version }}
+          build-args: |
+            OLLAMA_VERSION=${{ steps.cfg.outputs.version }}
+            EMBED_MODEL=${{ steps.cfg.outputs.model }}
+
+      - name: Size
+        run: |
+          docker image inspect "${IMAGE}:${{ steps.cfg.outputs.model }}" \
+            --format '{{.Size}}' | awk '{printf "final image: %.0f MB\n", $1/1024/1024}'
+
+      - name: Verify it can actually embed
+        # An image that pulled but cannot embed fails later and far less
+        # clearly — as an upload stuck at "processing". Never push an unverified
+        # base image.
+        run: |
+          docker run --rm \
+            -e "EMBED_MODEL=${{ steps.cfg.outputs.model }}" \
+            "${IMAGE}:${{ steps.cfg.outputs.model }}" verify
+
+      - name: Push
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy/ollama-base
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.cfg.outputs.model }}
+            ${{ env.IMAGE }}:${{ steps.cfg.outputs.model }}-${{ steps.cfg.outputs.version }}
+          build-args: |
+            OLLAMA_VERSION=${{ steps.cfg.outputs.version }}
+            EMBED_MODEL=${{ steps.cfg.outputs.model }}
+
+      - name: Remember to make the package public
+        run: |
+          echo "GHCR packages are private by default."
+          echo "Hugging Face must be able to pull this anonymously:"
+          echo "  github.com?tab=packages -> mcp-py-ollama -> Package settings -> Change visibility -> Public"

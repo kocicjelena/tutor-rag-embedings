@@ -3,9 +3,11 @@
 /**
  * Agent / tool execution display.
  *
- * Milestone 1 emits no tool events, so this renders its empty state and
- * explains why. Milestone 2 (MCP) starts producing `tool_call` / `tool_result`
- * frames and this panel lights up with no changes here.
+ * Fed by `tool_call` / `tool_result` frames from `POST /query/agent`. Those
+ * event types were defined in Milestone 1 and rendered here from the start
+ * with nothing producing them; the agent loop is now the producer, and this
+ * component needed no change when it arrived — which was the point of defining
+ * the protocol first.
  */
 
 import { useState } from "react";
@@ -57,8 +59,9 @@ export default function ToolTrace({ runs }: { runs: ToolRun[] }) {
       <h2>Tool execution</h2>
       {runs.length === 0 ? (
         <p className="empty">
-          No tools invoked. Tool calling arrives with the MCP layer in Milestone
-          2 — this panel is already wired to the event stream.
+          No tools invoked. Tick <strong>Let the model use tools</strong> above
+          and ask again — each search the model runs appears here, with its
+          arguments and what came back.
         </p>
       ) : (
         runs.map((run) => <TraceRow key={run.id} run={run} />)

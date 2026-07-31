@@ -9,7 +9,8 @@ per-request would silently corrupt the index rather than offer a choice.
 """
 
 from collections.abc import AsyncIterator, Sequence
-from typing import Protocol, runtime_checkable
+from dataclasses import dataclass, field
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from app.models import ModelInfo
 
@@ -72,4 +73,104 @@ class ChatProvider(Protocol):
         self, *, system: str, user: str, model: str | None = None
     ) -> AsyncIterator[str]:
         """Yield answer fragments. Implementations are async generators."""
+        ...
+
+
+# ──────────────────────────── Tool calling ────────────────────────────
+#
+# A second, **optional** Protocol rather than three more methods on
+# `ChatProvider`. Tool use is not universal — it depends on the model, not just
+# the provider, and Ollama's support varies by model — so requiring every
+# provider to implement it would either break Ollama or fill it with stubs that
+# raise. `isinstance(provider, ToolCallingProvider)` is then a real question
+# with a real answer, and the agent can fall back to plain RAG when it is no.
+#
+# The types below are deliberately provider-neutral. Anthropic's content-block
+# format and Ollama's differ, and translating is each provider's own job — the
+# agent loop must not learn either shape, or adding a third provider means
+# editing the loop.
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    """A tool offered to the model. Mirrors what MCP's `tools/list` returns."""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ToolRequest:
+    """The model asking for a tool to be run."""
+
+    id: str
+    name: str
+    input: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ToolOutcome:
+    """What running it produced, on its way back to the model."""
+
+    id: str
+    content: str
+    ok: bool
+
+
+@dataclass
+class AgentMessage:
+    """One turn of the conversation, in a shape no provider owns."""
+
+    role: Literal["user", "assistant"]
+    text: str | None = None
+    # Set on an assistant turn where the model asked for tools.
+    tool_requests: list[ToolRequest] = field(default_factory=list)
+    # Set on the user turn that answers those requests.
+    tool_results: list[ToolOutcome] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class TextDelta:
+    """A fragment of the model's prose, as it is written."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class TurnDone:
+    """The end of one turn: what it said, and what it wants run.
+
+    `tool_requests` empty means the model is finished and this is the answer.
+    """
+
+    text: str
+    tool_requests: list[ToolRequest]
+    stop_reason: str | None = None
+
+
+TurnEvent = TextDelta | TurnDone
+
+
+@runtime_checkable
+class ToolCallingProvider(Protocol):
+    """A provider that can be handed tools and ask for them to be run."""
+
+    name: str
+    default_model: str
+
+    def stream_turn(
+        self,
+        *,
+        system: str,
+        messages: Sequence[AgentMessage],
+        tools: Sequence[ToolSpec],
+        model: str | None = None,
+    ) -> AsyncIterator[TurnEvent]:
+        """One turn. Yields `TextDelta`s, then exactly one `TurnDone` last.
+
+        Streaming through tool turns rather than buffering them is what lets
+        the UI show the model reasoning *before* it calls something, which is
+        most of the value of a tool trace.
+        """
         ...

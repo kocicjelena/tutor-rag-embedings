@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = PLACEHOLDER
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 
+    # HMAC key for the derived public user id (`app/core/identity.py`).
+    # Falls back to SECRET_KEY when empty. Set it before publishing any link:
+    # otherwise rotating SECRET_KEY — which a token leak would force — silently
+    # changes every public id and breaks every URL.
+    IDENTITY_PEPPER: str = ""
+
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
@@ -78,6 +84,16 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "nomic-embed-text"
     EMBEDDING_DIMENSIONS: int = 768
 
+    # Which embedding backend. Ollama is the default and the tested path;
+    # `sentence_transformers` needs `uv sync --extra local-embed` and its own
+    # EMBEDDING_MODEL / EMBEDDING_DIMENSIONS (e.g. all-MiniLM-L6-v2 / 384).
+    #
+    # Switching this does not corrupt anything — each width has its own vec0
+    # index — but documents indexed under the previous model become
+    # **unsearchable** until `uv run python -m app.scripts.reembed`. The
+    # documents list reports that per document. See docs/VECTORS.md.
+    EMBEDDING_PROVIDER: Literal["ollama", "sentence_transformers"] = "ollama"
+
     # ─── Generation ──────────────────────────────────────────
     DEFAULT_CHAT_PROVIDER: Literal["ollama", "claude"] = "ollama"
     OLLAMA_CHAT_MODEL: str = "llama3.1:8b"
@@ -88,10 +104,40 @@ class Settings(BaseSettings):
 
     LLM_MAX_TOKENS: int = 1024
 
+    # ─── Bring-your-own Anthropic key ────────────────────────
+    # A signed-in user may supply their own Anthropic key; their Claude calls
+    # are then billed to them and never touch this app's key. The plaintext is
+    # never stored — only a hash and a display fingerprint. See
+    # `app/services/user_keys.py`.
+    USER_ANTHROPIC_KEYS: bool = True
+
+    # When a user has NOT supplied a key, may Claude fall back to this app's
+    # ANTHROPIC_API_KEY?
+    #
+    # **Set this to false on any public deployment.** True means every visitor
+    # spends your Anthropic balance — the "open invoice" in PLAN.md §6. It
+    # defaults to true only so local development keeps working unchanged.
+    ALLOW_APP_KEY_FALLBACK: bool = True
+
     @computed_field
     @property
     def claude_available(self) -> bool:
-        return bool(self.ANTHROPIC_API_KEY.strip())
+        """Whether Claude can serve a request with no user-supplied key.
+
+        User-supplied keys are checked per request and are not visible here —
+        a caller with their own key reaches Claude even when this is False.
+        """
+        return bool(self.ANTHROPIC_API_KEY.strip()) and self.ALLOW_APP_KEY_FALLBACK
+
+    @computed_field
+    @property
+    def claude_reachable(self) -> bool:
+        """Whether Claude is reachable *at all* — app key or a user's own.
+
+        Drives the provider picker: on a public deploy with no app key, Claude
+        must still be offered, because a visitor with their own key can use it.
+        """
+        return self.claude_available or self.USER_ANTHROPIC_KEYS
 
     # ─── RAG ─────────────────────────────────────────────────
     TOP_K_RESULTS: int = 5

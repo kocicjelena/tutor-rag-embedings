@@ -159,19 +159,73 @@ async def delete_document(*, session: AsyncSession, db_doc: Document) -> None:
 
 # ──────────────────────────── Chunks ────────────────────────────
 
-async def replace_chunks(
-    *, session: AsyncSession, document_id: uuid.UUID, chunks: list[DocumentChunk]
-) -> list[DocumentChunk]:
-    """Replace a document's chunk rows. Idempotent across re-ingestion."""
+async def clear_chunks(*, session: AsyncSession, document_id: uuid.UUID) -> None:
+    """Delete a document's chunk rows **without committing**.
+
+    Split out for the streaming ingestion path, which clears once at the start
+    and commits once at the end, so the document is never visible half-indexed.
+    """
     existing = await session.execute(
         select(DocumentChunk).where(DocumentChunk.document_id == document_id)
     )
     for chunk in existing.scalars().all():
         await session.delete(chunk)
+
+
+async def replace_chunks(
+    *, session: AsyncSession, document_id: uuid.UUID, chunks: list[DocumentChunk]
+) -> list[DocumentChunk]:
+    """Replace a document's chunk rows. Idempotent across re-ingestion."""
+    await clear_chunks(session=session, document_id=document_id)
     for chunk in chunks:
         session.add(chunk)
     await session.commit()
     return chunks
+
+
+async def get_embedding_models(
+    *, session: AsyncSession, doc_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """Which embedding model indexed each document.
+
+    Read from the chunk rows rather than a column on `Document`, and not
+    because it is tidier: `create_all` adds missing *tables* but never missing
+    *columns*, and there are no migrations here, so a new `Document` column
+    would simply not exist on anyone's database. `DocumentChunk.embedding_model`
+    has been recorded per row since Milestone 1 and is already the answer.
+
+    A document has one model in practice — ingestion replaces all its chunks at
+    once — so `min()` is a way to pick the single value, not a real aggregate.
+    """
+    if not doc_ids:
+        return {}
+    result = await session.execute(
+        select(
+            DocumentChunk.document_id,
+            func.min(DocumentChunk.embedding_model),
+        )
+        .where(DocumentChunk.document_id.in_(doc_ids))  # pyright: ignore[reportAttributeAccessIssue]
+        .group_by(DocumentChunk.document_id)  # pyright: ignore[reportArgumentType]
+    )
+    return {row[0]: str(row[1]) for row in result.all() if row[1]}
+
+
+async def get_chunks_for_document(
+    *, session: AsyncSession, document_id: uuid.UUID
+) -> list[DocumentChunk]:
+    """A document's chunks in reading order.
+
+    Returned as a list, deliberately not concatenated: chunks overlap by
+    `CHUNK_OVERLAP` characters, so joining them duplicates text at every seam.
+    Callers that need the original wording should read it from where it is kept
+    verbatim (`TutorLesson`) instead.
+    """
+    result = await session.execute(
+        select(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
+        .order_by(DocumentChunk.chunk_index)  # pyright: ignore[reportArgumentType]
+    )
+    return list(result.scalars().all())
 
 
 async def get_chunks_by_ids(
