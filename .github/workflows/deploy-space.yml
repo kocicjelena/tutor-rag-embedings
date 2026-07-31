@@ -113,6 +113,42 @@ jobs:
           curl -LsSf https://hf.co/cli/install.sh | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: What this run claims to be
+        # Diagnostic, and it prints CLAIMS — never the token itself. The Hub matches these
+        # strings *exactly* against the trusted publisher configured on the Space, so an
+        # `invalid_grant: No trusted publisher configured … matching this OIDC token` is
+        # almost always one of these three differing from what is stored there:
+        #
+        #   repository  must be  kocicjelena/tutor-rag-embedings   (owner/name — NOT a URL)
+        #   branch      must be  main                              (GitHub sends refs/heads/main)
+        #   workflow    must be  deploy-space.yml                  (the FILE name)
+        #
+        # Note the mismatch this step makes visible: GitHub's raw `workflow` claim is the
+        # workflow's *display name* ("Deploy to Hugging Face Space"); the file name only
+        # appears inside `workflow_ref`. If a publisher with all three claims will not
+        # match, configure `repository` alone first, prove the exchange works, then tighten.
+        #
+        # Deliberately cannot fail the deploy: a broken diagnostic must never be the reason
+        # a good run stops.
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          token="$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https%3A%2F%2Fhuggingface.co" \
+            | jq -r '.value // empty')"
+          if [ -z "${token}" ]; then
+            echo "No OIDC token — is 'permissions: id-token: write' still on this job?"
+            exit 0
+          fi
+          # Decoded in Python rather than base64 + tr: the payload is base64url and its
+          # padding is stripped, and getting that wrong in shell prints nothing and looks
+          # like "there were no claims".
+          printf '%s' "${token}" | python3 -c 'import base64, json, sys
+          p = sys.stdin.read().split(".")[1]
+          claims = json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))
+          wanted = ("repository", "repository_owner", "ref", "workflow", "workflow_ref", "sub", "aud")
+          print(json.dumps({k: claims.get(k) for k in wanted}, indent=2))'
+
       - name: Push to the Space
         env:
           # The one thing the CLI needs from us. On GitHub Actions it mints the

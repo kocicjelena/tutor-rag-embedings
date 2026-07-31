@@ -116,7 +116,16 @@ facts must match before I hand out a token.*
 | `workflow` | `deploy-space.yml` | Also pins it to one workflow file. Rename the file and the deploy stops |
 
 Matching is **exact** — no regex, no prefixes, no wildcards. There is no
-`main*`, and `Main` is not `main`. So if you ever want to deploy from a branch
+`main*`, and `Main` is not `main`. Two ways this bites in practice:
+
+- **`repository` is `owner/name`, not a URL.** `https://github.com/kocicjelena/tutor-rag-embedings`
+  will never match; `kocicjelena/tutor-rag-embedings` will. This is the most
+  likely cause of `invalid_grant: No trusted publisher configured …`.
+- **Start with `repository` alone.** Add `branch` and `workflow` afterwards, one
+  at a time, re-running the deploy between each. Then a failure names its own
+  cause instead of leaving three suspects. The *What this run claims to be* step
+  in `deploy-space.yml` prints exactly what GitHub is asserting, so you can
+  compare the two strings rather than guess at them. So if you ever want to deploy from a branch
 other than `main`, you either remove the `branch` claim (looser) or add a second
 trusted publisher for that branch (tighter, and reversible by deleting it).
 
