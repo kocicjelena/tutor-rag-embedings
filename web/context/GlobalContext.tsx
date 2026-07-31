@@ -11,7 +11,12 @@ import {
 } from "react";
 import combineReducers from "react-combine-reducers";
 import actionTypes from "@/types/interfaces/actionTypes";
-import type { IContext, IContextAction, IContextState } from "@/types/interfaces/ContextType";
+import type {
+  AnyContextAction,
+  IContext,
+  IContextAction,
+  IContextState,
+} from "@/types/interfaces/ContextType";
 import type { LearningPiece } from "@/types/interfaces/ModelType";
 import type { StreamKind } from "@/types/interfaces/StreamType";
 import type { ProvidersPayload, StreamEvent } from "@/lib/types";
@@ -44,7 +49,7 @@ import { initialStream, streamReducer } from "@/reducers/StreamReducer";
  * <Provider> is mounted once in app/layout.tsx, so every page has it.
  */
 
-const [mainReducer, initialState] = combineReducers<IContextState>({
+const [mainReducer, initialState] = combineReducers<IContextState, AnyContextAction>({
   stream: [streamReducer, initialStream],
   model: [modelReducer, initialModel],
   providers: [providersReducer, initialProviders],

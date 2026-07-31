@@ -32,7 +32,16 @@ interface ATypes {
   SET_SIGNED_IN: string;
 }
 
-const actionTypes: ATypes = {
+/**
+ * `as const satisfies ATypes` rather than `: ATypes`, and the difference is the whole point.
+ *
+ * With the annotation, every constant has type `string`, so `actionTypes.STREAM_BEGIN` is
+ * indistinguishable from `"STRAEM_BEGIN"` and a dispatch could carry any payload at all —
+ * the action unions in ContextType.ts were decoration. `as const` gives each one its literal
+ * type; `satisfies` keeps the interface doing its job, which is to fail the build when a
+ * slice adds a constant here and forgets to declare it above.
+ */
+const actionTypes = {
   STREAM_BEGIN: "STREAM_BEGIN",
   STREAM_PROVIDER: "STREAM_PROVIDER",
   STREAM_CHUNK: "STREAM_CHUNK",
@@ -52,6 +61,6 @@ const actionTypes: ATypes = {
   SET_MODEL: "SET_MODEL",
   CLEAR_PROVIDERS: "CLEAR_PROVIDERS",
   SET_SIGNED_IN: "SET_SIGNED_IN",
-};
+} as const satisfies ATypes;
 
 export default actionTypes;

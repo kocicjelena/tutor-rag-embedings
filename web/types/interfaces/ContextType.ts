@@ -136,6 +136,19 @@ export type ModelAction =
   | { type: "MODEL_ERROR"; payload: { error: string; pieces: LearningPiece[] } }
   | { type: "CLEAR_MODEL" };
 
+/**
+ * Everything the store can be told, in one union.
+ *
+ * This is what makes `dispatch` typed: a payload of the wrong shape, or a constant paired
+ * with the wrong payload, is now a build error rather than a value that quietly arrives at a
+ * reducer which reads `undefined` and carries on.
+ */
+export type AnyContextAction =
+  | StreamAction
+  | ModelAction
+  | ProvidersAction
+  | SessionAction;
+
 export type StreamAction =
   | { type: "STREAM_BEGIN"; payload: { kind: StreamKind; streamId: string } }
   | { type: "STREAM_PROVIDER"; payload: { provider: string; model: string } }

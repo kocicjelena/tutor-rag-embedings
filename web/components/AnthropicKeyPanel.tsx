@@ -22,6 +22,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useContextActions } from "@/context/GlobalContext";
 
 interface KeyState {
   configured: boolean;
@@ -30,11 +31,15 @@ interface KeyState {
   key: { fingerprint: string; last_used_at: string | null } | null;
 }
 
-interface Props {
-  onChanged?: () => void;
-}
+/**
+ * No `onChanged` prop any more. It existed to tell the page "reload the providers, the set of
+ * usable ones just changed" — a callback threaded through props because the provider
+ * catalogue lived in the page's state. It lives in the store now, so this panel calls
+ * `loadProviders()` itself and no parent has to know that adding a key affects the picker.
+ */
 
-export default function AnthropicKeyPanel({ onChanged }: Props) {
+export default function AnthropicKeyPanel() {
+  const { loadProviders } = useContextActions();
   const [state, setState] = useState<KeyState | null>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,7 +76,7 @@ export default function AnthropicKeyPanel({ onChanged }: Props) {
       setValue("");
       setOpen(false);
       await load();
-      onChanged?.();
+      void loadProviders();
     } finally {
       setBusy(false);
     }
@@ -82,7 +87,7 @@ export default function AnthropicKeyPanel({ onChanged }: Props) {
     try {
       await fetch("/api/keys", { method: "DELETE" });
       await load();
-      onChanged?.();
+      void loadProviders();
     } finally {
       setBusy(false);
     }

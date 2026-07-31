@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useContextState } from "@/context/GlobalContext";
 import type { DocumentInfo } from "@/lib/types";
 
 const STATUS_CLASS: Record<DocumentInfo["status"], string> = {
@@ -10,7 +11,13 @@ const STATUS_CLASS: Record<DocumentInfo["status"], string> = {
   error: "err",
 };
 
-export default function DocumentUpload({ signedIn }: { signedIn: boolean }) {
+/**
+ * `signedIn` used to arrive as a prop from whichever page rendered this. It is one fact about
+ * the app, the store holds it, and a component that reads it directly cannot be handed a
+ * stale copy by a parent that forgot to re-render.
+ */
+export default function DocumentUpload() {
+  const signedIn = useContextState().session.signedIn === true;
   const [docs, setDocs] = useState<DocumentInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

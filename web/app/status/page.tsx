@@ -10,18 +10,19 @@
  */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import StatusBoard from "@/components/StatusBoard";
+import { useContextActions, useContextState } from "@/context/GlobalContext";
 
 export default function StatusPage() {
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The third page that asked `/api/auth` for itself. One store, one answer — and walking
+  // here from `/` no longer shows "Loading…" for a session that was already known.
+  const signedIn = useContextState().session.signedIn;
+  const { checkSession } = useContextActions();
 
   useEffect(() => {
-    void fetch("/api/auth")
-      .then((r) => r.json())
-      .then((b: { signedIn: boolean }) => setSignedIn(b.signedIn))
-      .catch(() => setSignedIn(false));
-  }, []);
+    if (signedIn === null) void checkSession();
+  }, [signedIn, checkSession]);
 
   return (
     <div className="shell">

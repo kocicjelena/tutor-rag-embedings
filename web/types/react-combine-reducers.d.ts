@@ -14,9 +14,8 @@
 declare module "react-combine-reducers" {
   import type { Reducer } from "react";
 
-  export default function combineReducers<S>(slices: {
+  export default function combineReducers<S, A>(slices: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [K in keyof S]: [any, S[K]];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }): [Reducer<S, any>, S];
+  }): [Reducer<S, A>, S];
 }

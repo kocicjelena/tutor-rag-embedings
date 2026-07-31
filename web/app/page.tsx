@@ -50,7 +50,7 @@ export default function Home() {
             <div className="sub">LLM · RAG · MCP showcase</div>
           </div>
         </header>
-        <SignIn onSignedIn={() => void checkSession()} />
+        <SignIn />
       </div>
     );
   }
@@ -94,8 +94,8 @@ export default function Home() {
           />
           {/* Adding or removing a key changes which providers are usable, so
               reload the picker rather than leaving it stale. */}
-          <AnthropicKeyPanel onChanged={() => void loadProviders()} />
-          <DocumentUpload signedIn={signedIn} />
+          <AnthropicKeyPanel />
+          <DocumentUpload />
         </aside>
       </div>
     </div>

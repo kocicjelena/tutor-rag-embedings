@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useContextActions } from "@/context/GlobalContext";
 
-export default function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
+/**
+ * `onSignedIn` used to be a prop, threaded down so the page could re-check the session. That
+ * callback existed only because the answer lived in the page's own `useState`; now the store
+ * holds it, and this component tells the store directly. One fewer wire, and no parent has to
+ * remember to pass it.
+ */
+export default function SignIn() {
+  const { checkSession } = useContextActions();
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +27,7 @@ export default function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
         body: JSON.stringify({ email, password }),
       });
       if (response.ok) {
-        onSignedIn();
+        await checkSession();
       } else {
         setError("Incorrect email or password.");
       }
