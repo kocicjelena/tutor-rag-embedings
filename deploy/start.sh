@@ -71,16 +71,48 @@ wait_for() {
 # Embedding runs on the *write* path — every upload and every tutor lesson — so
 # this is not optional infrastructure, it is a dependency of the app booting
 # usefully.
-log "starting ollama (models: ${OLLAMA_MODELS})"
-ollama serve &
-pids+=($!)
+#
+# Whether *this* process starts it is a different question from whether it must
+# be running. On the laptop, compose points the container at the model server
+# already running on the host — the one with llama3.1:8b in it, so generation is
+# local and free — and starting a second one here would try to bind a port the
+# host already holds. The container would then look healthy for a second and die.
+#
+#   MANAGE_OLLAMA=1  start it (what a single-container deploy does)
+#   MANAGE_OLLAMA=0  someone else owns it; just wait for it
+#   unset            decide from OLLAMA_HOST: loopback means it is ours
+#
+# Either way the readiness check and the model check below still run. Not
+# starting a dependency is never a reason to stop verifying it.
+case "${MANAGE_OLLAMA:-auto}" in
+    1|true|yes)  manage_ollama=1 ;;
+    0|false|no)  manage_ollama=0 ;;
+    *)
+        case "${OLLAMA_HOST}" in
+            127.0.0.1:*|localhost:*|0.0.0.0:*) manage_ollama=1 ;;
+            *)                                 manage_ollama=0 ;;
+        esac
+        ;;
+esac
+
+if (( manage_ollama )); then
+    log "starting ollama (models: ${OLLAMA_MODELS})"
+    ollama serve &
+    pids+=($!)
+else
+    log "using the ollama at ${OLLAMA_HOST} — not starting one here"
+fi
 wait_for ollama "http://${OLLAMA_HOST}/api/tags" 60
 
 # The model is baked into the base image. If it is missing, something is wrong
 # with the image rather than with the network, and pulling 274 MB at boot to
 # paper over that would hide the real problem.
 if ! ollama list | grep -q "${EMBEDDING_MODEL:-nomic-embed-text}"; then
-    die "${EMBEDDING_MODEL:-nomic-embed-text} is not in this image — rebuild deploy/ollama-base"
+    if (( manage_ollama )); then
+        die "${EMBEDDING_MODEL:-nomic-embed-text} is not in this image — rebuild deploy/ollama-base"
+    else
+        die "${EMBEDDING_MODEL:-nomic-embed-text} is missing from the ollama at ${OLLAMA_HOST} — run: ollama pull ${EMBEDDING_MODEL:-nomic-embed-text}"
+    fi
 fi
 log "embedding model present"
 

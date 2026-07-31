@@ -323,6 +323,35 @@ original in `~/multichain-main/my` is untouched.
 `tsc` clean and `npm run build` green, standalone output intact. **Never
 clicked.** Nobody has watched a stream finish in a browser since the change.
 
+## Latest: Docker moved onto the laptop — 2026-07-31
+
+**Why:** a Hugging Face Docker Space needs PRO ($9/month); only Static Spaces
+are free and this app cannot be static. The full record, with the three routes
+and their costs, is at the top of `docs/DEPLOY-HF.md`. Jelena's decision: build
+and run it **here**, which costs nothing and is where the first real
+`docker build` was always going to teach the most.
+
+**Written:** `compose.yaml` at the repo root, and `docs/MANUAL.md` →
+*Running it in Docker on your own machine* (install, build, **stop/start**,
+logs, where the database lives, how to back it up while running).
+
+**The one code change it needed:** `deploy/start.sh` no longer assumes it owns
+the model server. `MANAGE_OLLAMA=0` tells it to use the Ollama already on this
+laptop — the one with `llama3.1:8b`, so generation is local and free and nothing
+is downloaded twice — while still waiting for it and still checking
+`nomic-embed-text` is present. Unset, it decides from `OLLAMA_HOST`: loopback
+means it is ours. A server or a Space is therefore unchanged.
+
+`compose.yaml` has a second service behind `--profile isolated` that is
+self-contained (its own Ollama, `nomic` only, generation via Claude) — that is
+the one that reproduces what a server does.
+
+**Nothing has been built yet.** Docker is *not installed on this machine*; the
+first line of the manual section is the install command. `start.sh` is
+syntax-checked and its ownership logic smoke-tested against five
+`MANAGE_OLLAMA`/`OLLAMA_HOST` combinations, but no image has been built and no
+container has run.
+
 ## Built and alive — but not yet run
 
 **None of this is abandoned or optional.** Each item is committed, wired in and

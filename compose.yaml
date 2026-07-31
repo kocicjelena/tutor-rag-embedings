@@ -1,0 +1,80 @@
+# Run the whole app on this laptop, in Docker, for nothing.
+#
+#     docker compose up -d --build      build and start
+#     docker compose logs -f            watch it
+#     docker compose stop               stop, keep the data
+#     docker compose start              start it again
+#
+# Full walk-through, including installing Docker: docs/MANUAL.md → "Running it
+# in Docker on your own machine".
+#
+# **The same image the Space would have run.** Nothing here is laptop-specific
+# except which model server it talks to — that is the point of building one
+# image with three destinations, and it is why a paid Space stopped being a
+# problem rather than a rewrite.
+
+name: mcp-py
+
+# Shared by both services below. Anchors rather than a second copy: two
+# definitions of the same container drift, and the difference between them is
+# the only thing worth reading.
+x-app: &app
+  build:
+    context: .
+    args:
+      # Prebuilt on GHCR by .github/workflows/ollama-base.yml. It must be
+      # public, or `docker login ghcr.io` first — see docs/MANUAL-GITHUB.md.
+      OLLAMA_BASE: ghcr.io/kocicjelena/mcp-py-ollama:nomic-embed-text
+  image: mcp-py:local
+  volumes:
+    # A named volume, not a bind mount. SQLite over a bind mount into a
+    # different filesystem is the one arrangement where its locking is not
+    # guaranteed, and this is a database with a vector index inside it.
+    # `docker compose down` keeps it; only `down -v` deletes it.
+    - rag-data:/data
+  env_file:
+    # Optional: ANTHROPIC_API_KEY and anything else you keep locally. It is
+    # gitignored and never enters the image — .dockerignore excludes it.
+    - path: .env
+      required: false
+  restart: unless-stopped
+
+services:
+  # ── The default: use the Ollama already running on this laptop ───────────
+  #
+  # It has llama3.1:8b, so generation is local and free, and it has
+  # nomic-embed-text, so nothing is downloaded twice. `network_mode: host` is
+  # what makes 127.0.0.1 mean the same thing inside the container as outside —
+  # simpler on Linux than teaching the host's Ollama to listen on 0.0.0.0.
+  #
+  # With host networking the app is on http://localhost:7860 and `ports:` does
+  # not apply. Apache on :80 is untouched.
+  app:
+    <<: *app
+    network_mode: host
+    environment:
+      ENVIRONMENT: local
+      MANAGE_OLLAMA: "0"          # the host owns it; start.sh must not start a second
+      OLLAMA_HOST: 127.0.0.1:11434
+      DEFAULT_CHAT_PROVIDER: ollama
+      PORT: "7860"
+
+  # ── The other one: exactly what a server would run ───────────────────────
+  #
+  #     docker compose --profile isolated up -d --build app-isolated
+  #
+  # Self-contained — its own Ollama inside the container, with only
+  # nomic-embed-text baked in, so embedding works and generation needs Claude.
+  # Use it to reproduce what a Space or a VPS does, not for daily work.
+  app-isolated:
+    <<: *app
+    profiles: [isolated]
+    ports:
+      - "7860:7860"
+    environment:
+      ENVIRONMENT: local
+      MANAGE_OLLAMA: "1"
+      DEFAULT_CHAT_PROVIDER: claude
+
+volumes:
+  rag-data:

@@ -52,6 +52,105 @@ Sign in with the values of `FIRST_SUPERUSER` / `FIRST_SUPERUSER_PASSWORD` from
 `~/mcp-py/.env`. There is no public signup — accounts are created by a
 superuser, by design.
 
+## Running it in Docker on your own machine
+
+Added 2026-07-31, when a Hugging Face Docker Space turned out to need a paid
+plan. This runs the **same image** a server would run, on this laptop, for
+nothing — and unlike the two-terminal dev setup above it survives a reboot and
+keeps its data in one place.
+
+Two terminals become one command. Use the dev setup when you are editing code;
+use this when you want the app *running*.
+
+### Install Docker — once
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh     # engine + the `compose` plugin
+sudo usermod -aG docker "$USER"                 # so `docker` needs no sudo
+newgrp docker                                   # or log out and back in
+docker run --rm hello-world                     # proves it works
+```
+
+### Build and start
+
+```bash
+cd ~/mcp-py
+docker compose up -d --build
+```
+
+First build takes a few minutes: it pulls the prebuilt Ollama base image from
+GHCR (**it must be public, or run `docker login ghcr.io` first**), installs the
+Python dependencies, and builds the Next.js standalone bundle. Later builds
+reuse all of that unless the thing that changed invalidates it.
+
+Open **<http://localhost:7860>**. Apache on `:80` is untouched.
+
+The container uses **the Ollama already running on this laptop** — the one with
+`llama3.1:8b` — so generation is local and free and nothing is downloaded twice.
+That is `MANAGE_OLLAMA=0` in `compose.yaml`: the app waits for that Ollama and
+checks `nomic-embed-text` is there, but does not start a second one.
+
+### Stop it, and start it again
+
+```bash
+docker compose stop        # stop the container, keep it and the data
+docker compose start       # start the same container again — seconds, no build
+```
+
+That is the pair to remember. Three more, for the cases they do not cover:
+
+| Command | What it does | The data |
+|---|---|---|
+| `docker compose restart` | stop + start in one step, e.g. after changing a secret in `.env` | kept |
+| `docker compose down` | stop **and remove** the container | **kept** — it lives in the `rag-data` volume, not in the container |
+| `docker compose down -v` | the same, and deletes the volume | **gone.** This is the only command here that destroys anything |
+| `docker compose up -d --build` | rebuild after a code change and replace the running container | kept |
+
+`restart: unless-stopped` is set, so the app comes back by itself after a reboot
+— **unless you stopped it yourself**. That is the behaviour you want: `docker
+compose stop` means stopped, and it stays stopped until you say otherwise.
+
+### Watching it, and finding things
+
+```bash
+docker compose ps                 # is it up, and how long has it been up
+docker compose logs -f            # follow the log; Ctrl-C stops watching, not the app
+docker compose logs --tail 50     # the last 50 lines and no more
+docker compose exec app bash      # a shell inside the container
+```
+
+The log begins with `[start]` lines from `deploy/start.sh` naming each of the
+three processes as it comes up. If the app dies, the last `[start]` line says
+which one went first — that is what those lines are for.
+
+### Where the database lives, and how to copy it
+
+```bash
+docker volume inspect mcp-py_rag-data          # where Docker keeps it
+docker compose exec app ls -la /data           # what is in it
+```
+
+To take a backup **while it is running**, use SQLite's own backup rather than
+`cp` — a plain copy of a live database gives you a file and a mismatched WAL:
+
+```bash
+docker compose exec app sqlite3 /data/rag.db ".backup /data/backup.db"
+docker compose cp app:/data/backup.db ./rag-backup.db
+```
+
+The vector index lives in the same file, so that one copy has the vectors too.
+
+### The other mode — no host Ollama
+
+```bash
+docker compose --profile isolated up -d --build app-isolated
+```
+
+Self-contained: its own Ollama inside the container with only
+`nomic-embed-text`, which means embedding works and **generation needs Claude**.
+Use it to reproduce what a server or a Space does, not for daily work. Stop it
+with `docker compose --profile isolated stop app-isolated`.
+
 ## Using it
 
 1. **Upload** a `.txt`, `.md`, `.csv`, or `.pdf` in the right-hand panel. The
