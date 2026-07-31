@@ -269,36 +269,55 @@ work was done is a working document, not a published one.
 
 ## What I am proud of
 
-Three things in here are further along than a learning project usually gets. The
-**MCP layer is real** — a server, a client speaking the actual protocol, and an
-agent loop where the model chooses its own tools while every call is shown in
-the interface as it happens — and no tool can be handed a user, so a model
-choosing badly still cannot reach anyone else's material. The **retrieval layer
-is honest about its own limits**: each vector index holds exactly one embedding
-space, results from two models are never mixed to make a search look richer, and
-anything the current model cannot reach is marked unreachable instead of quietly
-returning nothing. And the app **reports on itself by measuring**, not by
-listing features — `/status` probes what it claims, and keeps a category for
-things that were examined and deliberately refused.
+**The MCP layer is real.** A server, a client speaking the actual protocol, and
+an agent loop where the model picks its own tools — with every call shown in the
+interface as it happens. No tool can be handed a user, so a model choosing badly
+still cannot reach anyone else's material.
 
-A fourth thing is quieter but it is the reason this runs on ordinary hardware:
-**both ends of the pipeline are coroutines, and both are bounded.** Ingestion is
-an asynchronous generator that is fed chunks, embeds them a batch at a time and
-flushes what is left when it is closed, so a large upload costs one batch of
-memory instead of a whole document — and the delete that clears a document's old
-vectors was lifted out of it, because doing that per batch would have kept only
-the last one, silently and with no error. In the browser the streaming answer is
-drained by a single action inside the React provider rather than by whichever
-component happens to be on screen, so the stream has one owner and cannot be
-half-consumed by a component that unmounts. What the browser keeps is bounded on
-purpose: the current answer and nothing else — a new question clears the last
-one, nothing is copied into local storage, and the durable copy stays on the
-server, where it was already indexed.
+**Retrieval is honest about its limits.** One embedding space per index, results
+from two models never mixed to make a search look richer, and anything the
+current model cannot reach is marked unreachable rather than quietly returning
+nothing.
 
-The direction underneath all of it is the part I care about most: the tutor is
-built so that what you are taught accumulates into a corpus that is *yours*,
-exportable and portable, on the way to a model that keeps learning from its own
-use rather than being fixed at the moment it was trained.
+**The app measures itself.** `/status` probes what it claims instead of listing
+features, and keeps a category for things examined and deliberately refused.
+
+**Both ends of the pipeline are coroutines, and both are bounded.** A large
+upload costs one batch of memory, not a whole document. In the browser the
+stream has one owner, so it cannot be half-consumed by a component that
+unmounts — and what is kept is the current answer and nothing else.
+
+**The direction underneath it:** what you are taught accumulates into a corpus
+that is *yours*, exportable and portable, on the way to a model that keeps
+learning from its own use rather than being fixed when it was trained.
+
+## What the shared state bought
+
+Added 2026-07-31, and worth stating because it is the kind of change that
+usually shows up as "refactoring" and nothing else.
+
+The browser state moved into one store — React Context and `useReducer`, one
+reducer per slice, actions as `useCallback`. It did what it was supposed to do,
+which is remove whole *classes* of bug rather than fix instances:
+
+- **One fact, one owner.** The provider catalogue was fetched in three places
+  with three copies of the same "prefer the default, fall back to what works"
+  rule, so choosing Claude on one page did not survive walking to another. It
+  does now.
+- **A live bug fell out of it.** With the picker reading the store and the tutor
+  still holding its own copy, the page would have shown one model and requested
+  another. Two owners of one fact do not disagree loudly.
+- **Four props disappeared** — each one a callback threaded up or a value
+  threaded down purely because state sat in the wrong component.
+- **The stream outlives the component.** It is drained by an action inside the
+  provider, so nothing is lost because a panel unmounted mid-answer.
+- **Dispatch is type-checked.** The action constants carry literal types, so a
+  wrong payload is a build error rather than a reducer quietly reading
+  `undefined`.
+
+What deliberately did *not* move: text inputs, open/closed toggles, expanded
+rows. If only one component reads it and it should die with that component, it
+stays local — a store holding a text field is a store nobody wants to debug.
 
 ## A note on the data
 
