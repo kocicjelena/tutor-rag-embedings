@@ -160,6 +160,22 @@ Stated plainly, because some of it is visible in the app and would otherwise loo
 Also missing, and planned: Ollama tool calling, a sign-up screen with federated
 login, rate limiting, and deployment.
 
+**The largest gap is not on that list, because you cannot see it.** The browser
+store and the backend pipeline are not joined up yet. The design is that the
+front end drives the work rather than merely displaying it: results are produced
+by asynchronous generators, piped into coroutines that process them, and the
+outcome is held in React context — so the context is where a learning model is
+assembled and refined, and where the parts that turn out not to matter are
+dropped rather than kept forever. Today each half exists on its own: the backend
+streams and the store records, but the loop between them is not closed.
+
+**And the corpus is not yet a tool.** What you are taught is searchable material
+now; the intention is that your own model becomes something a model can *call* —
+a tool in its own right, offered over MCP alongside the four that exist, so an
+agent can consult what you have learned rather than only what you have uploaded.
+That is the point where the tutor stops being a feature of this app and starts
+being something you own and can take elsewhere.
+
 ### Using your own Anthropic key
 
 Claude usage can be billed to **your** Anthropic account rather than the app's.
