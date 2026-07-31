@@ -23,6 +23,56 @@ then the Space.
 
 ---
 
+## ⚠️ The premise of this file broke — 2026-07-31
+
+**A Docker Space is no longer free.** Hugging Face's own documentation now says
+it plainly:
+
+> *"Static Spaces are free for everyone. Gradio and Docker Spaces run on compute
+> and require a paid plan to create: PRO for personal accounts, Team or
+> Enterprise for organizations."*
+> — <https://huggingface.co/docs/hub/en/spaces-overview>
+
+CPU Basic still has **no hourly cost**; what changed is that *creating* a Space
+that runs on compute needs **PRO, $9/month**
+(<https://huggingface.co/pricing>). Jelena hit this twice in one session: a
+Static Space refused to build with *"Static space builds require credits"*, and
+the Docker template is behind the paid plan.
+
+So the sentence this whole file was built on — *free on Hugging Face Spaces
+now, the same image on a ~€5/month VPS later* — is no longer true, and the
+"later" half has become the only half.
+
+**What is unaffected, and it is nearly everything:** the `Dockerfile`, the
+Ollama base image on GHCR, `deploy/start.sh`, `.dockerignore`, the standalone
+Next build. None of it was Spaces-specific — that was a deliberate property
+(*"one image, three destinations"*) and it is the reason this costs a decision
+rather than a rewrite. Only `deploy-space.yml` and `deploy/space-README.md` are
+Hugging Face's, and they stay: they are correct, and they work the day a PRO
+account exists.
+
+**The three ways forward**, with the money stated:
+
+| | Cost | What it gives | What it costs beyond money |
+|---|---|---|---|
+| **Laptop + Cloudflare Tunnel** — `docs/ops/LAPTOP8.md` | €0 | the full app, persistent disk, Ollama generating *and* embedding, a public URL with no inbound port | it is up only when the laptop is up |
+| **One small VPS** (~€4–5/month) | ~€4–5 | always up, persistent disk, the same image, no platform lock-in — and it dissolves the ephemeral-SQLite problem rather than working around it | a machine to keep patched |
+| **Hugging Face PRO** | $9/month | exactly what is already built and wired: push to `main`, the Space builds | the most expensive option, and the least transferable |
+
+**Not a route:** a Static Space. This app is FastAPI + a model server; static
+hosting cannot run either.
+
+**The one piece of work any non-Space route needs** is a workflow that builds
+and pushes the *app* image to GHCR — today Hugging Face builds it from source,
+which is the only thing a Space was doing for us. `ollama-base.yml` is the
+template for it, and it is a short file.
+
+**Recorded rather than decided.** Jelena's call: the deployment target is a
+choice about money and her own machines, and the project is not defined by
+whichever host is cheapest this month.
+
+---
+
 # Part 1 — the assessment
 
 ## What is good
