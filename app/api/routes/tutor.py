@@ -25,6 +25,8 @@ from app.models import (
     TUTOR_MODEL_FORMAT,
     TUTOR_MODEL_VERSION,
     ChunkResult,
+    LearnRequest,
+    LearnResponse,
     TutorInteractionCreate,
     TutorInteractionPublic,
     TutorModelExport,
@@ -42,7 +44,7 @@ from app.schemas.events import (
     ProviderEvent,
     TokenEvent,
 )
-from app.services import rag, tutor_model
+from app.services import learning_stream, rag, tutor_model
 from app.services.providers import (
     ProviderUnavailableError,
     get_chat_provider,
@@ -135,6 +137,61 @@ async def teach(
 
 
 # ──────────────────────────── record ────────────────────────────
+
+@router.post("/learn", response_model=LearnResponse)
+async def learn(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: LearnRequest,
+) -> LearnResponse:
+    """Push pieces of learning up the channel, as they happen.
+
+    The other end of `POST /tutor/interactions`, and not a replacement for it:
+    that route records a *finished* exchange into the searchable corpus, this
+    one builds the model **while** the learning happens. Nothing here writes to
+    the search index.
+
+    The work goes through `learning_stream.learning_sink`, an async generator
+    that embeds in small batches and commits once. What comes back is the state
+    of the model as SQLite now holds it — the browser mirrors that rather than
+    keeping its own tally, so a client that missed a response recovers from the
+    next one.
+
+    Retries are safe: `(owner_id, session_id, seq)` is unique, and a piece that
+    was already stored comes back in `skipped`.
+    """
+    requested = [p.seq for p in body.pieces]
+    already = {
+        event.seq
+        for event in await learning_stream.read_events(
+            session, current_user.id, body.session_id, requested
+        )
+    }
+
+    sink = learning_stream.learning_sink(
+        session, current_user.id, body.session_id, term=body.term
+    )
+    await anext(sink)
+    for piece in body.pieces:
+        await sink.asend(piece)
+    await sink.aclose()
+
+    accepted = [
+        piece.seq
+        for piece in body.pieces
+        if piece.seq not in already and piece.text.strip()
+    ]
+    return LearnResponse(
+        accepted=await learning_stream.read_events(
+            session, current_user.id, body.session_id, accepted
+        ),
+        skipped=sorted(already),
+        state=await learning_stream.read_state(
+            session, current_user.id, body.session_id
+        ),
+    )
+
 
 @router.post("/interactions", response_model=TutorInteractionPublic, status_code=201)
 async def record_interaction(

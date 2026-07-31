@@ -1,4 +1,10 @@
 import type { StreamEvent } from "@/lib/types";
+import type {
+  LearningEvent,
+  LearningModelState,
+  LearningPiece,
+  ModelType,
+} from "./ModelType";
 import type { StreamKind, StreamType } from "./StreamType";
 
 /**
@@ -10,6 +16,7 @@ import type { StreamKind, StreamType } from "./StreamType";
  */
 export interface IContextState {
   stream: StreamType;
+  model: ModelType;
 }
 
 export interface IContextAction {
@@ -45,7 +52,40 @@ export interface IContextAction {
   failStream: (message: string) => void;
   /** Back to idle. Nothing is preserved. */
   clearStream: () => void;
+
+  // ── the model, built while the learning happens ──
+
+  /**
+   * Begin a teaching session. Returns the id, so the caller can correlate without reading
+   * state back out of the store.
+   */
+  startLearning: (sessionId?: string) => string;
+  /**
+   * Send one piece of learning up the channel.
+   *
+   * The coroutine, on this side: the piece is queued, and a single request is kept in
+   * flight. Everything that arrives while it is in flight waits in the queue and goes in
+   * the next batch — that is the backpressure, and it is why this returns a promise that
+   * resolves when the queue has drained rather than when the piece was handed over.
+   *
+   * The response replaces `state.model.state` wholesale, because the server's answer is
+   * the state of SQLite and the browser is mirroring it, not counting alongside it.
+   */
+  learn: (text: string, term?: string) => Promise<void>;
+  /** Forget the session. The database keeps everything it was told. */
+  clearModel: () => void;
 }
+
+export type ModelAction =
+  | { type: "MODEL_SESSION_START"; payload: { sessionId: string } }
+  | { type: "MODEL_QUEUE"; payload: { piece: LearningPiece } }
+  | { type: "MODEL_SENDING"; payload: { count: number } }
+  | {
+      type: "MODEL_SYNCED";
+      payload: { accepted: LearningEvent[]; state: LearningModelState };
+    }
+  | { type: "MODEL_ERROR"; payload: { error: string; pieces: LearningPiece[] } }
+  | { type: "CLEAR_MODEL" };
 
 export type StreamAction =
   | { type: "STREAM_BEGIN"; payload: { kind: StreamKind; streamId: string } }

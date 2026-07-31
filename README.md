@@ -250,7 +250,7 @@ one.
 | Types | `pyright` strict, TypeScript strict |
 
 ```bash
-uv run pytest      # 177 tests, no network needed
+uv run pytest      # 187 tests, no network needed
 uv run pyright     # strict type checking
 ```
 

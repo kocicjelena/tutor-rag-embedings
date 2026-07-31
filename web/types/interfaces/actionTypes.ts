@@ -14,6 +14,13 @@ interface ATypes {
   STREAM_END: string;
   STREAM_ERROR: string;
   CLEAR_STREAM: string;
+  // ── model (built while the learning happens) ──
+  MODEL_SESSION_START: string;
+  MODEL_QUEUE: string;
+  MODEL_SENDING: string;
+  MODEL_SYNCED: string;
+  MODEL_ERROR: string;
+  CLEAR_MODEL: string;
 }
 
 const actionTypes: ATypes = {
@@ -23,6 +30,12 @@ const actionTypes: ATypes = {
   STREAM_END: "STREAM_END",
   STREAM_ERROR: "STREAM_ERROR",
   CLEAR_STREAM: "CLEAR_STREAM",
+  MODEL_SESSION_START: "MODEL_SESSION_START",
+  MODEL_QUEUE: "MODEL_QUEUE",
+  MODEL_SENDING: "MODEL_SENDING",
+  MODEL_SYNCED: "MODEL_SYNCED",
+  MODEL_ERROR: "MODEL_ERROR",
+  CLEAR_MODEL: "CLEAR_MODEL",
 };
 
 export default actionTypes;

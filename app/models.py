@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import computed_field
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 ProviderName = Literal["ollama", "claude"]
@@ -300,6 +301,100 @@ class TutorStats(SQLModel):
     topics: list[str]
     indexed_chunks: int
     embedding_model: str
+
+
+# ──────────────────── The model, built while learning ────────────────────
+#
+# Jelena, 2026-07-31: embedding is how learning becomes the material of a
+# model, which is a different purpose from making text findable. The search
+# index is untouched by everything below — `vec_chunks` still holds documents
+# and finished lessons, and `search_documents` still reaches them.
+#
+# What is new is a second, *live* record: as the learner is taught, pieces
+# arrive one at a time, are embedded as they arrive, and each one is placed
+# beside what the learner already knows. The result persists here, and the row
+# is what the browser's context mirrors.
+
+
+class LearningEvent(SQLModel, table=True):
+    """One piece of learning, embedded at the moment it happened.
+
+    A new table rather than columns elsewhere, for the reason every table here
+    is new: `create_all` adds missing tables and never missing columns.
+
+    `novelty` is the distance from this piece to the nearest thing the learner
+    already had. Near zero means "you have been told this before"; large means
+    "this is new to you". It is computed against the existing index, read-only
+    — the live pipeline never writes to it.
+    """
+
+    __table_args__ = (UniqueConstraint("owner_id", "session_id", "seq"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    # One teaching session in the browser. Not a login session: it groups the
+    # pieces of one continuous stretch of learning.
+    session_id: uuid.UUID = Field(nullable=False, index=True)
+    # The client's own counter. With the unique constraint above it makes a
+    # retry idempotent — a piece that was already stored is skipped rather than
+    # duplicated, which matters because the channel is many small requests and
+    # any of them can be sent twice.
+    seq: int = Field(nullable=False)
+    text: str
+    term: str | None = Field(default=None, max_length=100, index=True)
+    novelty: float | None = Field(default=None)
+    # Which model produced the vector. The same reasoning as `indexed_with` on
+    # a document: two embedding spaces are not comparable, so a row has to say
+    # which one it belongs to.
+    embedded_with: str = Field(max_length=200)
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class LearningPiece(SQLModel):
+    """One unit travelling up the channel."""
+
+    seq: int
+    text: str
+
+
+class LearnRequest(SQLModel):
+    session_id: uuid.UUID
+    term: str | None = None
+    pieces: list[LearningPiece]
+
+
+class LearningEventPublic(SQLModel):
+    seq: int
+    text: str
+    term: str | None
+    novelty: float | None
+    created_at: datetime
+
+
+class LearningModelState(SQLModel):
+    """What SQLite holds for this session — the shape the browser mirrors."""
+
+    session_id: uuid.UUID
+    events: int
+    terms: list[str]
+    mean_novelty: float | None
+    last_seq: int | None
+    embedded_with: str
+
+
+class LearnResponse(SQLModel):
+    """What one push up the channel produced, plus the state it produced it in.
+
+    Both, deliberately: the events are what just happened, and the state is
+    what is true now. A client that misses a response can recover from the next
+    one without replaying anything.
+    """
+
+    accepted: list[LearningEventPublic]
+    skipped: list[int]
+    state: LearningModelState
 
 
 # ──────────────────── The model — export / import ────────────────────

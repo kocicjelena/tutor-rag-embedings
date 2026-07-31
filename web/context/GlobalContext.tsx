@@ -1,11 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useReducer } from "react";
+import { createContext, useCallback, useContext, useMemo, useReducer, useRef } from "react";
 import actionTypes from "@/types/interfaces/actionTypes";
 import type { IContextAction, IContextState } from "@/types/interfaces/ContextType";
+import type { LearningPiece } from "@/types/interfaces/ModelType";
 import type { StreamKind } from "@/types/interfaces/StreamType";
 import type { StreamEvent } from "@/lib/types";
 import { readEventStream } from "@/lib/stream";
+import { initialModel, modelReducer } from "@/reducers/ModelReducer";
 import { initialStream, streamReducer } from "@/reducers/StreamReducer";
 
 /**
@@ -24,6 +26,7 @@ import { initialStream, streamReducer } from "@/reducers/StreamReducer";
 
 const initialState: IContextState = {
   stream: initialStream,
+  model: initialModel,
 };
 
 // Manual root reducer — each slice sees every action and ignores what isn't its own.
@@ -31,6 +34,7 @@ const initialState: IContextState = {
 function rootReducer(state: IContextState, action: any): IContextState {
   return {
     stream: streamReducer(state.stream, action),
+    model: modelReducer(state.model, action),
   };
 }
 
@@ -131,6 +135,103 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  // ── model actions: the channel from the browser to the backend ──
+  //
+  // Refs, not state, for the three things the *pipeline* needs: they must be readable and
+  // writable inside an in-flight async action without re-creating it, and a stale closure
+  // here would send the same piece twice or lose one. What the UI reads still comes from
+  // the reducer; these are the pipeline's own bookkeeping.
+  const sessionRef = useRef<string | null>(null);
+  const queueRef = useRef<LearningPiece[]>([]);
+  const seqRef = useRef(0);
+  const drainingRef = useRef<Promise<void> | null>(null);
+
+  const startLearning = useCallback((sessionId?: string) => {
+    const id = sessionId ?? crypto.randomUUID();
+    sessionRef.current = id;
+    queueRef.current = [];
+    seqRef.current = 0;
+    dispatch({ type: actionTypes.MODEL_SESSION_START, payload: { sessionId: id } });
+    return id;
+  }, []);
+
+  const clearModel = useCallback(() => {
+    sessionRef.current = null;
+    queueRef.current = [];
+    seqRef.current = 0;
+    dispatch({ type: actionTypes.CLEAR_MODEL });
+  }, []);
+
+  /**
+   * Drain the queue, one request at a time.
+   *
+   * This is the backpressure. While a batch is on the wire, new pieces accumulate in the
+   * queue rather than opening a second request — so the browser never runs ahead of the
+   * embedder, and SQLite (one writer) never sees two pushes for the same session at once.
+   * The loop continues until the queue is empty, which is why a caller can `await learn()`
+   * and know the model is up to date.
+   */
+  const drain = useCallback(async (sessionId: string, term?: string) => {
+    while (queueRef.current.length > 0) {
+      const batch = queueRef.current;
+      queueRef.current = [];
+      dispatch({ type: actionTypes.MODEL_SENDING, payload: { count: batch.length } });
+
+      try {
+        const response = await fetch("/api/tutor/learn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, term, pieces: batch }),
+        });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
+          throw new Error(
+            typeof body.detail === "string" ? body.detail : `Learn failed (${response.status})`,
+          );
+        }
+        const payload = await response.json();
+        dispatch({
+          type: actionTypes.MODEL_SYNCED,
+          payload: { accepted: payload.accepted, state: payload.state },
+        });
+      } catch (err) {
+        dispatch({
+          type: actionTypes.MODEL_ERROR,
+          payload: {
+            error: err instanceof Error ? err.message : "Could not reach the model",
+            pieces: batch,
+          },
+        });
+        // Stop draining rather than spin: the pieces are back in the reducer's queue and
+        // the next `learn()` retries them. Retrying here would hammer a server that is
+        // already failing, and every piece carries its own seq, so nothing duplicates.
+        queueRef.current = [...batch, ...queueRef.current];
+        return;
+      }
+    }
+  }, []);
+
+  const learn = useCallback(
+    async (text: string, term?: string) => {
+      if (!text.trim()) return;
+      const sessionId = sessionRef.current ?? startLearning();
+
+      const piece: LearningPiece = { seq: seqRef.current++, text };
+      queueRef.current = [...queueRef.current, piece];
+      dispatch({ type: actionTypes.MODEL_QUEUE, payload: { piece } });
+
+      // One drain at a time. A second caller joins the promise already running instead of
+      // starting a rival loop — the queue it just added to will be picked up by that loop.
+      if (!drainingRef.current) {
+        drainingRef.current = drain(sessionId, term).finally(() => {
+          drainingRef.current = null;
+        });
+      }
+      await drainingRef.current;
+    },
+    [drain, startLearning],
+  );
+
   const actions = useMemo<IContextAction>(
     () => ({
       runStream,
@@ -140,8 +241,22 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       endStream,
       failStream,
       clearStream,
+      startLearning,
+      learn,
+      clearModel,
     }),
-    [runStream, beginStream, appendChunk, setStreamProvider, endStream, failStream, clearStream],
+    [
+      runStream,
+      beginStream,
+      appendChunk,
+      setStreamProvider,
+      endStream,
+      failStream,
+      clearStream,
+      startLearning,
+      learn,
+      clearModel,
+    ],
   );
 
   return (

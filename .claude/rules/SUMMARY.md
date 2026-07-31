@@ -41,7 +41,7 @@ through an async generator and a second, pluggable embedding provider. `/status`
 reports what the app can do by probing rather than by claiming. The browser now
 has a React context store on Jelena's own pattern, with the streaming answer
 drained by one action inside the provider. The Docker path, both GitHub
-workflows and a `compose.yaml` for this laptop are written. There are 177 tests,
+workflows and a `compose.yaml` for this laptop are written. There are 187 tests,
 no network needed, with `pyright` and `tsc` clean.
 
 ## To do
