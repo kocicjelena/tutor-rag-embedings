@@ -5,9 +5,9 @@
  * wired to this app's backend and layout.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useContextActions, useContextState } from "@/context/GlobalContext";
 import { useLearningTutor } from "@/hooks/useLearningTutor";
-import type { ProvidersPayload } from "@/lib/types";
 import { ChatComposer } from "./ChatComposer";
 import { MessageList } from "./MessageList";
 import { ModelReadyBanner } from "./ModelReadyBanner";
@@ -16,31 +16,15 @@ import { TutorSidebar } from "./TutorSidebar";
 
 export default function TutorPage() {
   const tutor = useLearningTutor();
-  const [providers, setProviders] = useState<ProvidersPayload | null>(null);
-
-  const loadProviders = useCallback(async () => {
-    try {
-      const response = await fetch("/api/providers");
-      if (!response.ok) return;
-      const body = (await response.json()) as ProvidersPayload;
-      setProviders(body);
-
-      const preferred =
-        body.data.find((p) => p.name === body.default_provider && p.available) ??
-        body.data.find((p) => p.available);
-      if (preferred) {
-        tutor.setProvider(preferred.name);
-        tutor.setModel(preferred.default_model);
-      }
-    } catch {
-      /* the picker shows its loading state */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // The same catalogue the home page uses, fetched once for the whole app. It used to be
+  // fetched again here, with its own copy of the "prefer the default, fall back to what is
+  // available" rule — so choosing Claude on `/` and walking to `/tutor` silently reset it.
+  const { providers } = useContextState();
+  const { loadProviders, setProvider, setModel } = useContextActions();
 
   useEffect(() => {
-    void loadProviders();
-  }, [loadProviders]);
+    if (!providers.loaded) void loadProviders();
+  }, [providers.loaded, loadProviders]);
 
   const indexedLessons = tutor.stats?.interactions ?? tutor.learningModel.interactions;
 
@@ -103,11 +87,11 @@ export default function TutorPage() {
           onAddGoal={tutor.addGoal}
           onRemoveGoal={tutor.removeGoal}
           onDownloadModel={tutor.downloadModel}
-          providers={providers}
-          provider={tutor.provider}
-          model={tutor.model}
-          onProviderChange={tutor.setProvider}
-          onModelChange={tutor.setModel}
+          providers={providers.data}
+          provider={providers.provider}
+          model={providers.model}
+          onProviderChange={setProvider}
+          onModelChange={setModel}
           loading={tutor.loading}
         />
       </div>

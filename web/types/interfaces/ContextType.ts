@@ -1,10 +1,11 @@
-import type { StreamEvent } from "@/lib/types";
+import type { ProvidersPayload, StreamEvent } from "@/lib/types";
 import type {
   LearningEvent,
   LearningModelState,
   LearningPiece,
   ModelType,
 } from "./ModelType";
+import type { ProvidersType } from "./ProvidersType";
 import type { StreamKind, StreamType } from "./StreamType";
 
 /**
@@ -17,6 +18,9 @@ import type { StreamKind, StreamType } from "./StreamType";
 export interface IContextState {
   stream: StreamType;
   model: ModelType;
+  providers: ProvidersType;
+  /** Null while unknown — the app cannot tell "signed out" from "not asked yet" without it. */
+  signedIn: boolean | null;
 }
 
 export interface IContextAction {
@@ -83,7 +87,34 @@ export interface IContextAction {
   syncModel: (sessionId: string) => Promise<void>;
   /** Forget the session. The database keeps everything it was told. */
   clearModel: () => void;
+
+  // ── providers, and the session that decides whether they can be asked for ──
+
+  /**
+   * Fetch the catalogue and pick a usable default.
+   *
+   * The rule lives here and nowhere else: prefer the backend's stated default, fall back to
+   * whichever provider is actually available, so the picker is never stuck on a dead option.
+   * It used to be copied into two pages, which is two chances to drift.
+   */
+  loadProviders: () => Promise<void>;
+  /** Choose who answers. Clears the model, because a model belongs to one provider. */
+  setProvider: (name: string) => void;
+  /** Choose the model within the current provider. Empty means that provider's default. */
+  setModel: (name: string) => void;
+  /** Ask the server whether this browser is signed in. */
+  checkSession: () => Promise<void>;
+  /** Sign out, and forget everything that belonged to the session. */
+  signOut: () => Promise<void>;
 }
+
+export type ProvidersAction =
+  | { type: "PROVIDERS_LOADING" }
+  | { type: "SET_PROVIDERS"; payload: { data: ProvidersPayload } }
+  | { type: "PROVIDERS_ERROR"; payload: { error: string } }
+  | { type: "SET_PROVIDER"; payload: { provider: string; model?: string } }
+  | { type: "SET_MODEL"; payload: { model: string } }
+  | { type: "CLEAR_PROVIDERS" };
 
 export type ModelAction =
   | { type: "MODEL_SESSION_START"; payload: { sessionId: string } }

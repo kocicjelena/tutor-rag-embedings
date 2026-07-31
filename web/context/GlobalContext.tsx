@@ -8,7 +8,9 @@ import type { StreamKind } from "@/types/interfaces/StreamType";
 import type { StreamEvent } from "@/lib/types";
 import { readEventStream } from "@/lib/stream";
 import { initialModel, modelReducer } from "@/reducers/ModelReducer";
+import { initialProviders, providersReducer } from "@/reducers/ProvidersReducer";
 import { initialStream, streamReducer } from "@/reducers/StreamReducer";
+import type { ProvidersPayload } from "@/lib/types";
 
 /**
  * The global store: React Context + useReducer, with the value split into `{ state, actions }`.
@@ -27,6 +29,8 @@ import { initialStream, streamReducer } from "@/reducers/StreamReducer";
 const initialState: IContextState = {
   stream: initialStream,
   model: initialModel,
+  providers: initialProviders,
+  signedIn: null,
 };
 
 // Manual root reducer — each slice sees every action and ignores what isn't its own.
@@ -35,6 +39,13 @@ function rootReducer(state: IContextState, action: any): IContextState {
   return {
     stream: streamReducer(state.stream, action),
     model: modelReducer(state.model, action),
+    providers: providersReducer(state.providers, action),
+    // A single value rather than a slice of its own: one boolean with one action does not
+    // earn a file, and pretending otherwise is how a store becomes ceremony.
+    signedIn:
+      action.type === actionTypes.SET_SIGNED_IN
+        ? (action.payload?.signedIn ?? null)
+        : state.signedIn,
   };
 }
 
@@ -262,6 +273,80 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     [drain, startLearning],
   );
 
+  // ── providers, and the session ──
+
+  const setProvider = useCallback((name: string) => {
+    dispatch({ type: actionTypes.SET_PROVIDER, payload: { provider: name } });
+  }, []);
+
+  const setModel = useCallback((name: string) => {
+    dispatch({ type: actionTypes.SET_MODEL, payload: { model: name } });
+  }, []);
+
+  /**
+   * Fetch the catalogue and choose something usable.
+   *
+   * The choosing rule lives here and nowhere else. It was copied into `app/page.tsx` and
+   * `components/tutor/TutorPage.tsx`, which is two chances to drift and two fetches of one
+   * fact — and the user's choice on one page did not survive walking to the other.
+   */
+  const loadProviders = useCallback(async () => {
+    dispatch({ type: actionTypes.PROVIDERS_LOADING });
+    try {
+      const response = await fetch("/api/providers");
+      if (!response.ok) throw new Error(`Providers unavailable (${response.status})`);
+      const data = (await response.json()) as ProvidersPayload;
+      dispatch({ type: actionTypes.SET_PROVIDERS, payload: { data } });
+
+      // Prefer the backend's stated default, fall back to whichever provider is actually
+      // usable, so the picker is never stuck on a dead option.
+      const preferred =
+        data.data.find((p) => p.name === data.default_provider && p.available) ??
+        data.data.find((p) => p.available);
+      if (preferred) {
+        dispatch({
+          type: actionTypes.SET_PROVIDER,
+          payload: { provider: preferred.name, model: preferred.default_model },
+        });
+      }
+    } catch (err) {
+      dispatch({
+        type: actionTypes.PROVIDERS_ERROR,
+        payload: {
+          error: err instanceof Error ? err.message : "Could not load providers",
+        },
+      });
+    }
+  }, []);
+
+  const checkSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth");
+      const body = (await response.json()) as { signedIn: boolean };
+      dispatch({
+        type: actionTypes.SET_SIGNED_IN,
+        payload: { signedIn: body.signedIn },
+      });
+    } catch {
+      // A failure to ask is not a session. Treat it as signed out rather than leaving the
+      // app on its loading screen forever.
+      dispatch({ type: actionTypes.SET_SIGNED_IN, payload: { signedIn: false } });
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await fetch("/api/auth", { method: "DELETE" });
+    dispatch({ type: actionTypes.SET_SIGNED_IN, payload: { signedIn: false } });
+    // Everything below belonged to that session. Leaving the catalogue behind would show
+    // the next person which models the last one had.
+    dispatch({ type: actionTypes.CLEAR_PROVIDERS });
+    dispatch({ type: actionTypes.CLEAR_MODEL });
+    dispatch({ type: actionTypes.CLEAR_STREAM });
+    sessionRef.current = null;
+    queueRef.current = [];
+    seqRef.current = 0;
+  }, []);
+
   const actions = useMemo<IContextAction>(
     () => ({
       runStream,
@@ -275,6 +360,11 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       learn,
       syncModel,
       clearModel,
+      loadProviders,
+      setProvider,
+      setModel,
+      checkSession,
+      signOut,
     }),
     [
       runStream,
@@ -288,6 +378,11 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       learn,
       syncModel,
       clearModel,
+      loadProviders,
+      setProvider,
+      setModel,
+      checkSession,
+      signOut,
     ],
   );
 
@@ -297,6 +392,13 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     </StateContext.Provider>
   );
 }
+
+/**
+ * `Provider` is the name this pattern uses in Jelena's other projects
+ * (`~/mcp-py/related/internal-AI-workloads-nextjs-main/globalx`), so both spellings work and
+ * an import copied from there lands correctly.
+ */
+export { GlobalProvider as Provider };
 
 export function useContextState(): IContextState {
   const ctx = useContext(StateContext);

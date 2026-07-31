@@ -21,6 +21,15 @@ interface ATypes {
   MODEL_SYNCED: string;
   MODEL_ERROR: string;
   CLEAR_MODEL: string;
+  // ── providers: who answers, and with which model ──
+  PROVIDERS_LOADING: string;
+  SET_PROVIDERS: string;
+  PROVIDERS_ERROR: string;
+  SET_PROVIDER: string;
+  SET_MODEL: string;
+  CLEAR_PROVIDERS: string;
+  // ── session ──
+  SET_SIGNED_IN: string;
 }
 
 const actionTypes: ATypes = {
@@ -36,6 +45,13 @@ const actionTypes: ATypes = {
   MODEL_SYNCED: "MODEL_SYNCED",
   MODEL_ERROR: "MODEL_ERROR",
   CLEAR_MODEL: "CLEAR_MODEL",
+  PROVIDERS_LOADING: "PROVIDERS_LOADING",
+  SET_PROVIDERS: "SET_PROVIDERS",
+  PROVIDERS_ERROR: "PROVIDERS_ERROR",
+  SET_PROVIDER: "SET_PROVIDER",
+  SET_MODEL: "SET_MODEL",
+  CLEAR_PROVIDERS: "CLEAR_PROVIDERS",
+  SET_SIGNED_IN: "SET_SIGNED_IN",
 };
 
 export default actionTypes;

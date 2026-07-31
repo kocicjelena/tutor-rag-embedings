@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useContextActions, useContextState } from "@/context/GlobalContext";
 import AnthropicKeyPanel from "@/components/AnthropicKeyPanel";
 import ChatStream from "@/components/ChatStream";
 import DocumentUpload from "@/components/DocumentUpload";
@@ -9,49 +10,27 @@ import ProviderPicker from "@/components/ProviderPicker";
 import SignIn from "@/components/SignIn";
 import SourcePanel from "@/components/SourcePanel";
 import ToolTrace from "@/components/ToolTrace";
-import type { ProvidersPayload, SourceChunk, ToolRun } from "@/lib/types";
+import type { SourceChunk, ToolRun } from "@/lib/types";
 
 export default function Home() {
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  const [providers, setProviders] = useState<ProvidersPayload | null>(null);
-  const [provider, setProvider] = useState("ollama");
-  const [model, setModel] = useState("");
+  // Everything shared with the rest of the app comes from the store: whether we are signed
+  // in, the provider catalogue, and which provider and model the reader chose. Only what
+  // belongs to *this page* stays local — the sources and the tool trace are panels beside
+  // the answer, not facts about the app.
+  const { signedIn, providers } = useContextState();
+  const { checkSession, loadProviders, setProvider, setModel, signOut } =
+    useContextActions();
+
   const [sources, setSources] = useState<SourceChunk[]>([]);
   const [toolRuns, setToolRuns] = useState<ToolRun[]>([]);
 
   useEffect(() => {
-    void fetch("/api/auth")
-      .then((r) => r.json())
-      .then((b: { signedIn: boolean }) => setSignedIn(b.signedIn))
-      .catch(() => setSignedIn(false));
-  }, []);
-
-  const loadProviders = useCallback(async () => {
-    const response = await fetch("/api/providers");
-    if (!response.ok) return;
-    const body = (await response.json()) as ProvidersPayload;
-    setProviders(body);
-
-    // Prefer the backend default, but fall back to whichever provider is
-    // actually usable — so the picker is never stuck on a dead option.
-    const preferred =
-      body.data.find((p) => p.name === body.default_provider && p.available) ??
-      body.data.find((p) => p.available);
-    if (preferred) {
-      setProvider(preferred.name);
-      setModel(preferred.default_model);
-    }
-  }, []);
+    void checkSession();
+  }, [checkSession]);
 
   useEffect(() => {
-    if (signedIn) void loadProviders();
-  }, [signedIn, loadProviders]);
-
-  async function signOut() {
-    await fetch("/api/auth", { method: "DELETE" });
-    setSignedIn(false);
-    setProviders(null);
-  }
+    if (signedIn && !providers.loaded) void loadProviders();
+  }, [signedIn, providers.loaded, loadProviders]);
 
   if (signedIn === null) {
     return (
@@ -70,7 +49,7 @@ export default function Home() {
             <div className="sub">LLM · RAG · MCP showcase</div>
           </div>
         </header>
-        <SignIn onSignedIn={() => setSignedIn(true)} />
+        <SignIn onSignedIn={() => void checkSession()} />
       </div>
     );
   }
@@ -92,28 +71,23 @@ export default function Home() {
           <Link href="/status">Status</Link>
         </nav>
 
-        <button className="secondary" onClick={signOut}>
+        <button className="secondary" onClick={() => void signOut()}>
           Sign out
         </button>
       </header>
 
       <div className="layout">
         <div>
-          <ChatStream
-            provider={provider}
-            model={model}
-            onSources={setSources}
-            onToolRuns={setToolRuns}
-          />
+          <ChatStream onSources={setSources} onToolRuns={setToolRuns} />
           <SourcePanel chunks={sources} />
           <ToolTrace runs={toolRuns} />
         </div>
 
         <aside>
           <ProviderPicker
-            providers={providers}
-            provider={provider}
-            model={model}
+            providers={providers.data}
+            provider={providers.provider}
+            model={providers.model}
             onProviderChange={setProvider}
             onModelChange={setModel}
           />

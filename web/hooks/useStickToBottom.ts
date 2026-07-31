@@ -21,16 +21,34 @@
  */
 
 import { useEffect, useRef } from "react";
+import { useContextState } from "@/context/GlobalContext";
 
 /** How close to the bottom still counts as "following". */
 const STICK_THRESHOLD_PX = 80;
 
+/**
+ * ## Why this stayed a hook rather than moving into the provider
+ *
+ * Jelena asked whether both hooks should be folded into `GlobalContext`. `useLearningTutor`
+ * should and now is. This one should not, and the reason is structural rather than a
+ * preference: what it returns is a **ref to one DOM element**, and refs are per-element. `/`
+ * and `/tutor` each have their own scroll container, and a store can hold one ref or a map
+ * of refs — the first is wrong and the second is a registry pretending to be state.
+ *
+ * What *did* move is the part that is genuinely shared: whether a stream is running. Callers
+ * no longer pass it, because the store already knows.
+ */
 export function useStickToBottom(
   /** Changes whenever there is new content — the streamed text itself. */
   content: unknown,
-  /** True while tokens are arriving. */
-  streaming: boolean,
+  /**
+   * True while tokens are arriving. Omit it and the store answers: any stream anywhere in
+   * the app counts, which is right, because there is only ever one at a time.
+   */
+  streaming?: boolean,
 ) {
+  const streamStatus = useContextState().stream.status;
+  const isStreaming = streaming ?? streamStatus === "streaming";
   const endRef = useRef<HTMLDivElement | null>(null);
   const following = useRef(true);
 
@@ -52,9 +70,9 @@ export function useStickToBottom(
     if (!following.current) return;
     endRef.current?.scrollIntoView({
       block: "end",
-      behavior: streaming ? "auto" : "smooth",
+      behavior: isStreaming ? "auto" : "smooth",
     });
-  }, [content, streaming]);
+  }, [content, isStreaming]);
 
   return endRef;
 }

@@ -38,7 +38,7 @@ import type {
   TutorMode,
   TutorStats,
 } from "@/components/tutor/lib/types";
-import { useContextActions } from "@/context/GlobalContext";
+import { useContextActions, useContextState } from "@/context/GlobalContext";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 
 let messageSeq = 0;
@@ -80,7 +80,12 @@ export type LearningTutorState = {
 export function useLearningTutor(): LearningTutorState {
   // The chunk pipe. `runStream` is memoised in the provider, so it is a stable dependency for
   // every useCallback below — it never re-creates `teach`.
-  const { runStream } = useContextActions();
+  const { runStream, setProvider, setModel } = useContextActions();
+  // Who answers is one fact about the app, not a fact about this hook. It used to be two
+  // copies — this one and the home page's — which is why choosing Claude on `/` did not
+  // survive walking to `/tutor`, and why the sidebar could set one while the request sent
+  // the other.
+  const { provider, model } = useContextState().providers;
 
   const [selectedTerm, setSelectedTerm] = useState(AI_TERMS[0].id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -89,8 +94,6 @@ export function useLearningTutor(): LearningTutorState {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<TutorMode>("casual");
   const [modelSource, setModelSource] = useState<ModelSource>("tutor");
-  const [provider, setProvider] = useState("ollama");
-  const [model, setModel] = useState("");
   const [feedback, setFeedback] = useState<InteractionFeedback | null>(null);
   const [showModelPanel, setShowModelPanel] = useState(false);
   const [learningModel, setLearningModel] = useState<LearningModel>(

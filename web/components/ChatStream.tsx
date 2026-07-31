@@ -9,23 +9,21 @@
  */
 
 import { useRef, useState } from "react";
-import { useContextActions } from "@/context/GlobalContext";
+import { useContextActions, useContextState } from "@/context/GlobalContext";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import type { SourceChunk, ToolRun } from "@/lib/types";
 
 interface Props {
-  provider: string;
-  model: string;
   onSources: (chunks: SourceChunk[]) => void;
   onToolRuns: (runs: ToolRun[]) => void;
 }
 
-export default function ChatStream({
-  provider,
-  model,
-  onSources,
-  onToolRuns,
-}: Props) {
+export default function ChatStream({ onSources, onToolRuns }: Props) {
+  // Provider and model are no longer props. They are one fact about the app, they are chosen
+  // in a panel this component does not own, and passing them down meant every page holding
+  // its own copy — which is how `/` and `/tutor` came to disagree about which model was
+  // selected.
+  const { provider, model } = useContextState().providers;
   const { runStream } = useContextActions();
 
   const [question, setQuestion] = useState("");
