@@ -108,12 +108,23 @@ Three things worth carrying forward, all of them in the hard rules now:
 
 ## Latest: identity, and who pays for Claude ✅
 
-Full record and the AWS/Auth0 checklist: **`docs/AUTH.md`**.
+Full record and the AWS/Auth0 checklist: **`docs/AUTH.md`** — and read *The
+plan this serves* at the top of it before describing this app to anyone.
 
-Users bring their **own** Anthropic key, so their Claude usage is billed to
-them. This is what makes a public deploy possible at all — on Spaces there is
-no Ollama, so Claude is the only generator, and `PLAN.md` §6's "open invoice"
-was otherwise unavoidable.
+**The app is meant to issue identity.** A user registers with an email, the app
+computes their id from it (`public_id` is the first piece of this, not a
+URL-safety detail), they get their own page by route, and they are tied to
+*this* app as their identity provider rather than to Google. The tutor,
+retrieval and the exportable model are what that identity accumulates. The
+direction is that the app charges for itself, because it costs money to run and
+most visitors will never create an Anthropic account.
+
+**BYOK is a stage on that road, not the destination.** Users bring their own
+Anthropic key, so their Claude usage is billed to them — which is what makes a
+free public deploy affordable, since Spaces has no Ollama and `PLAN.md` §6's
+"open invoice" was otherwise unavoidable. Earlier sessions called this the
+app's strongest feature. **That was a narrowing**, corrected 2026-07-31; see
+the rule in `~/.claude/CLAUDE.md` about not shrinking the idea silently.
 
 **The correction that shaped it:** a hash is one-way, so "store it hashed" and
 "bill the user with it" cannot both be true. What is stored is `sha256` + a

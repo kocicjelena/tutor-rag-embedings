@@ -391,6 +391,24 @@ CAPABILITIES: list[Capability] = [
 
     # ── Identity ─────────────────────────────────────────────
     Capability(
+        key="identity",
+        name="The app as your identity provider",
+        area="identity",
+        summary="Register with an email; this app computes your id and issues it onward",
+        detail=(
+            "The point of the project, and mostly not built. You register with "
+            "an email, the app derives your identity from it, and you are tied "
+            "to this app rather than to Google — you keep that identity "
+            "private and hand over only an address. What exists today is the "
+            "derivation itself (`public_id`, a one-way HMAC, stable and safe "
+            "in a URL). Registration, a page of your own by route, and issuing "
+            "identity onward to DIDs are planned and unbuilt. The tutor and "
+            "retrieval are what that identity accumulates and owns."
+        ),
+        declared="building",
+        doc="docs/AUTH.md",
+    ),
+    Capability(
         key="byok",
         name="Bring your own key",
         area="identity",
@@ -398,12 +416,33 @@ CAPABILITIES: list[Capability] = [
         detail=(
             "Only a sha256 and a fingerprint are stored, neither of which can "
             "call Anthropic. The working key lives in a browser session and is "
-            "dropped when you close it. This is what makes a public deploy "
-            "possible at all."
+            "dropped when you close it. This is what makes a free public deploy "
+            "affordable — and it is a stage, not the destination: asking every "
+            "visitor to own an Anthropic account is a barrier most will not "
+            "cross. The direction is that the app charges for itself and pays "
+            "for its own models."
         ),
         declared="built",
         doc="docs/AUTH.md",
         probe=_probe_byok,
+    ),
+    Capability(
+        key="paid-app",
+        name="Paying for the app itself",
+        area="identity",
+        summary="The app earning, instead of requiring everyone to bring a key",
+        detail=(
+            "Nothing about billing exists in this codebase. For: the app stops "
+            "being a cost centre, and a visitor no longer needs an Anthropic "
+            "console account to try it. Against: payments mean an account "
+            "model, a provider, invoices, tax and a support obligation — real "
+            "work with no learning value for the LLM/RAG/MCP goals, and not "
+            "undoable once someone has paid. Recorded so the simplification "
+            "that got us to a first deploy stays a deferral rather than "
+            "becoming the definition of the app."
+        ),
+        declared="building",
+        doc="docs/AUTH.md",
     ),
     Capability(
         key="federated-login",

@@ -6,6 +6,77 @@ are easy to confuse, so they are kept apart here:
 1. **Who the user is** — a derived public id now, federated login later.
 2. **Whose Anthropic key pays** — built and tested, working today.
 
+---
+
+# The plan this serves — read first
+
+Recorded 2026-07-31, at Jelena's correction, because the sessions before it had
+started describing the app by its cheapest working part.
+
+## The app is meant to be an identity provider
+
+Not "a RAG demo that is cheap to host". **The app issues identity**, and the
+tutor and retrieval are what that identity is *for*. Jelena's plan, in her
+words and structure:
+
+- A user **registers with an email**, and the app computes their id from it.
+  That is what `app/core/identity.py` already does — `public_id` is not a
+  URL-safety detail, it is the first piece of this.
+- They get **their own page, by route** — the `/u/[user]` shape from her other
+  project.
+- They are **tied to this app as their identity provider**, not to Google. They
+  keep their Google identity private and hand over only an email; the app
+  issues identity onward to their DIDs.
+- The **same email yields a wallet**, through another of her apps.
+
+So the identity is the product and the through-line between her projects. The
+RAG, the tutor, MCP and the exportable model are what that identity accumulates
+and owns.
+
+## The app has to earn, because it costs money to run
+
+BYOK is **a stage, not the destination.** Requiring an Anthropic key works for
+someone who already has an account and knows where the console is. Most people
+have neither, and will not spend an evening finding out. The direction is that
+the user **pays for the app**, and the app pays for its own models.
+
+**Status: not built.** Nothing about billing exists in this codebase.
+
+| | |
+|---|---|
+| **For** | The app stops being a cost centre. It removes the biggest barrier for a normal visitor — most people will not create an Anthropic account to try a demo. It is the only path where the app can run without either an open invoice or a locked door |
+| **Against** | Payments mean an account model, a provider, invoices, refunds, tax, and a support obligation. All of that is real work with no learning value for the LLM/RAG/MCP goals, and none of it can be undone casually once someone has paid |
+
+## What that means for how this app is described
+
+**BYOK is true and useful and it is not the headline.** It solves *who pays for
+Claude on a free Space today*. Describing it as the app's main advantage
+shrinks an identity product into a hosting trick — which is exactly what the
+earlier sessions did, repeatedly, in `DEPLOY-HF.md`, `CONTINUE.md` and the
+status page.
+
+The accurate framing, and the one to keep:
+
+> The app issues identity. BYOK is how it currently affords to do that in
+> public, until it can charge for itself.
+
+## Built vs planned, plainly
+
+| | |
+|---|---|
+| `public_id` — one-way HMAC of the email, stable, URL-safe | **built** |
+| BYOK — per-user Anthropic keys, nothing usable stored | **built** |
+| Registration by email, with the app as the issuer | **not built** — there is no public signup at all |
+| A user's own page by route | **not built** |
+| Federated login | **not built** — waiting on IdP credentials |
+| Issuing identity onward to DIDs | **not built**, and no code assumes it |
+| Wallet from the same email, via the other app | **not built here**, and out of this repo's scope |
+| Paying for the app itself | **not built** |
+
+Nothing on the "not built" side should be built speculatively. It is written
+down so that the next simplification is a **recorded deferral** rather than a
+quiet redefinition of what the app is.
+
 Patterns were read from `~/my-sei-dapp` (NextAuth v5 credentials provider, the
 hash-and-verify shape in `lib/server/apiKeys.ts`) and rewritten here. **Nothing
 in that repo was modified** — it is reference material, like `related/`.

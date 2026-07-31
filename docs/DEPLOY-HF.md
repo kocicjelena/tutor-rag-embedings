@@ -27,12 +27,19 @@ then the Space.
 
 ## What is good
 
-**Bring-your-own-key is the strongest decision in this project.** There is no
-Ollama on Spaces, so Claude generates everything, and every visitor's question
-would otherwise cost *you* money with no ceiling. BYOK — the visitor pastes
-their own Anthropic key and their usage bills their account — removes that at
-the root rather than capping it. Most people building a public LLM demo
+**Bring-your-own-key is what makes a public deploy affordable today.** There is
+no Ollama on Spaces, so Claude generates everything, and every visitor's
+question would otherwise cost *you* money with no ceiling. BYOK — the visitor
+pastes their own Anthropic key and their usage bills their account — removes
+that at the root rather than capping it. Most people building a public LLM demo
 discover this need after the bill.
+
+> **It is not the point of the app, and earlier drafts of this file said it
+> was.** The app is meant to issue identity; the tutor and retrieval are what
+> that identity is for, and the direction is that the app charges for itself
+> rather than requiring every visitor to own an Anthropic account. BYOK is the
+> stage that makes a free public deploy possible in the meantime. Full record:
+> `docs/AUTH.md` → *The plan this serves*.
 
 **One Docker image for every destination.** Spaces takes a `Dockerfile`; so does
 Docker Compose on a VPS or on the laptop in `docs/ops/LAPTOP8.md`. There is no
