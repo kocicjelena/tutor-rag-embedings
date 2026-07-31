@@ -305,7 +305,7 @@ class TutorStats(SQLModel):
 # ──────────────────── The model — export / import ────────────────────
 #
 # "The model" in this app is the learner's corpus: the lessons they were
-# taught, plus metadata. This is the tier-1 artifact in `docs/PLAN.md` §7 and
+# taught, plus metadata. This is the tier-1 artifact in `.claude/rules/PLAN.md` §7 and
 # the source of truth the other two tiers are generated from.
 #
 # Deliberately absent:
@@ -489,7 +489,7 @@ class CapabilityPublic(SQLModel):
     summary: str
     # The reasoning. For `exploring` this is the whole point of the entry.
     detail: str | None = None
-    # Where the decision is written down, e.g. "docs/DECISIONS.md".
+    # Where the decision is written down, e.g. ".claude/rules/DECISIONS.md".
     doc: str | None = None
     # What the probe actually observed, when there was one. None means the
     # status is declared rather than measured — which the UI says out loud.

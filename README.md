@@ -24,8 +24,9 @@ have been taught, which the app can answer from and which you can export and dow
 > which tools to run — with every call shown in the app as it happens.
 >
 > What is not finished: Ollama cannot call tools yet (Claude can), there is no
-> sign-up screen, and nothing is deployed. See *Not working yet* below —
-> nothing there is hidden.
+> sign-up screen, and it is not hosted anywhere public — it runs locally, and in
+> Docker, on your own machine. See *Not working yet* below — nothing there is
+> hidden.
 >
 > Expect things to change. There are no migrations and no rate limiting yet.
 
@@ -51,6 +52,25 @@ cd web && npm install && npm run dev # UI on http://localhost:3000
 
 There is no public sign-up. The accounts are created on first startup from `.env` —
 see `.env.example` for what to set.
+
+### Or run the whole thing in Docker
+
+One command instead of two terminals, and it survives a reboot. It uses the
+Ollama already running on your machine, so nothing is downloaded twice and
+generation stays local.
+
+```bash
+docker compose up -d --build     # build and start — http://localhost:7860
+docker compose logs -f           # watch it
+docker compose stop              # stop it, keep the data
+docker compose start             # start it again, in seconds
+```
+
+The database lives in a named Docker volume, so `docker compose down` keeps it
+and only `docker compose down -v` deletes it. A second service,
+`docker compose --profile isolated up -d --build app-isolated`, runs the same
+image completely self-contained — its own Ollama inside the container — which
+is what a server would run.
 
 ---
 
@@ -215,13 +235,21 @@ one.
 | Types | `pyright` strict, TypeScript strict |
 
 ```bash
-uv run pytest      # 175 tests, no network needed
+uv run pytest      # 177 tests, no network needed
 uv run pyright     # strict type checking
 ```
 
-More detail lives in `docs/` — `API.md` (every route), `MCP.md` (the tool layer), `AUTH.md` (identity and keys), `PLAN.md` (why it is built this
-way, including deployment), `MANUAL.md` (user and developer guide), `TODO.md` (what is
-next).
+**This README is the documentation.** Everything a user or a developer needs to
+run, use and extend the app is on this page.
+
+Behind it, in `.claude/rules/`, are the working documents — the reasoning, the
+plans, the decisions taken and refused, and the session handoff. They are kept
+in the repository on purpose: they are how the project explains *why* it is
+built this way, and they are what the next working session reads first. Start
+with `MANUAL.md` (user and developer guide, including the Docker workflow),
+`API.md` (every route), `MCP.md` (the tool layer), `AUTH.md` (identity and
+keys), `PLAN.md` (architecture and deployment), `DECISIONS.md` (what was
+deliberately *not* built), and `TODO.md` (what is next).
 
 ## A note on the data
 

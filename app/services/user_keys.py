@@ -1,6 +1,6 @@
 """Per-user Anthropic keys — so the user pays for their own Claude usage.
 
-The problem this solves is in `docs/PLAN.md` §6: a public deploy with paid
+The problem this solves is in `.claude/rules/PLAN.md` §6: a public deploy with paid
 Claude calls behind it is an open invoice. On Hugging Face Spaces there is no
 Ollama, so Claude is the *only* generator — which turns "who pays" from a
 detail into the thing that decides whether the demo can be public at all.

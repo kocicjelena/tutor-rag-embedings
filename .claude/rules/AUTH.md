@@ -140,7 +140,7 @@ ends up holding credentials she never wanted to hold.
 
 ## Why this matters more than it looks
 
-From `docs/PLAN.md` §6: a public URL with paid Claude calls behind it is an
+From `.claude/rules/PLAN.md` §6: a public URL with paid Claude calls behind it is an
 open invoice. And on Hugging Face Spaces **there is no Ollama**, so Claude is
 the only generator. Those two facts together meant the public demo could not
 really be public.
@@ -237,7 +237,7 @@ You said you would set up federation and bring back the client id and secret.
 - [ ] Send me the three values and I will wire the provider. **Put them in
       `.env`, never in `app/core/config.py`** — that file is committed.
 
-> One thing to check before you spend time in the console: `docs/AUTH.md` in
+> One thing to check before you spend time in the console: `.claude/rules/AUTH.md` in
 > `~/my-sei-dapp` is an **Auth0** setup (it names a live `*.eu.auth0.com`
 > tenant — the domain is in that file), not AWS Cognito. They are different
 > products with different SDKs and different env variables. If you already have
@@ -253,7 +253,7 @@ You said you would set up federation and bring back the client id and secret.
       `init_db` already uses.
 - [ ] **Public signup.** There is deliberately no signup route today. Federation
       makes one unnecessary for the IdP path, but decide whether email+password
-      signup also opens. Related: `docs/TODO.md` "Decide how visitors get
+      signup also opens. Related: `.claude/rules/TODO.md` "Decide how visitors get
       accounts".
 - [ ] **`note_use` is never called.** `last_used_at` will always be null until
       the query and tutor routes call it after a successful Claude answer. Small,

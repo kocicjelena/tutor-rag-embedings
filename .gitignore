@@ -43,16 +43,23 @@ npm-debug.log*
 *.swp
 
 # ─── Docs ──────────────────────────────────────────────────
-# `docs/` as a whole used to be ignored. That also hid PLAN, API, MCP, AUTH,
-# VECTORS, MANUAL, TODO and CONTINUE — every file README.md links to — so a
-# clone had broken links and none of the reasoning travelled with the code.
-# Only Jelena's private material is excluded now.
+# There is no tracked `docs/` any more. Jelena's decision, 2026-07-31: the repo
+# is meant to be read the way any GitHub repo is read — README.md for users and
+# developers — and the working documents belong with the tooling that uses
+# them, in `.claude/rules/`.
+#
+# They are still IN GIT, and that matters: `docs/` was once ignored wholesale,
+# which hid PLAN, API, MCP, AUTH, VECTORS, MANUAL, TODO and CONTINUE, so a clone
+# had broken links and none of the reasoning travelled with the code. Moving
+# them is not the same as hiding them.
+#
+# What remains under docs/ is hers alone, and untracked:
 docs/jelena/
 # Infrastructure plans for Jelena's own machines — her home network, what runs
 # on it, how it is exposed. Private, but NOT off-limits: unlike docs/jelena/
 # these were written for a future session to execute, so they must stay
 # readable. That is the whole reason they are here and not there.
 docs/ops/
-# other_agent.md is deliberately NOT listed: it is already tracked, so a rule
+# .claude/rules/other_agent.md is deliberately NOT listed: it is already tracked, so a rule
 # here would do nothing but mislead. It is excluded from the *public* repo by
-# the sync script instead — see docs/DEPLOY-HF.md.
+# the sync script instead — see .claude/rules/DEPLOY-HF.md.

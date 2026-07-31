@@ -171,7 +171,7 @@ async def export_model(
 ) -> Response:
     """Download the learner's model as one JSON document.
 
-    This is tier 1 in `docs/PLAN.md` §7 — the source of truth. It carries the
+    This is tier 1 in `.claude/rules/PLAN.md` §7 — the source of truth. It carries the
     lessons and their metadata, but no vectors (reproducible from the text, and
     valid for one embedding space only) and nothing identifying the learner.
 

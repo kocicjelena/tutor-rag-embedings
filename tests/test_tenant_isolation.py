@@ -107,7 +107,7 @@ async def test_vector_search_requires_owner_positionally() -> None:
     sig = inspect.signature(vectors.search)
     owner = sig.parameters["owner_id"]
     assert owner.default is inspect.Parameter.empty, (
-        "owner_id must stay required — see other_agent.md finding #1"
+        "owner_id must stay required — see .claude/rules/other_agent.md finding #1"
     )
 
 

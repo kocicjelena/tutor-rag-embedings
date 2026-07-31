@@ -162,7 +162,7 @@ be **public** — and it is a pull, anonymous, with no token of any kind.
 
 What the workflow does, in order: refuses to run if `.env`, `rag.db` or
 `related/` appear in the checkout or any file exceeds 10 MB → deletes `.claude/`,
-`.github/`, `.CLAUDE.md`, `other_agent.md`, `docs/jelena/`, `docs/ops/` →
+`.github/`, `.CLAUDE.md`, `.claude/rules/other_agent.md`, `docs/jelena/`, `docs/ops/` →
 swaps in `deploy/space-README.md` as the Space's front page → uploads the tree
 with `--delete="*"`, so the Space is a mirror and a file deleted here disappears
 there too.
@@ -197,7 +197,7 @@ Each step is *finished* only when the thing after the dash is true.
       *Build*.
 
 Expect step 6 to fail at least once. That is normal for a first Docker build
-that has never run anywhere; `docs/CONTINUE.md` says plainly that nothing in the
+that has never run anywhere; `.claude/rules/CONTINUE.md` says plainly that nothing in the
 Docker path has been executed yet.
 
 ---
@@ -377,6 +377,6 @@ anything, and neither workflow ever calls Anthropic.
 ## What is deliberately not in CI
 
 Recorded in `DECISIONS.md` → *CI/CD*. The one worth knowing: **the tests do not
-run before a deploy.** 175 of them run in 44 seconds with no network, and they
+run before a deploy.** 177 of them run in 44 seconds with no network, and they
 should gate the push. That is logged there as an omission, not a decision — it
 is the next CI change worth making.

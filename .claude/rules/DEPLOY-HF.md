@@ -89,12 +89,12 @@ discover this need after the bill.
 > that identity is for, and the direction is that the app charges for itself
 > rather than requiring every visitor to own an Anthropic account. BYOK is the
 > stage that makes a free public deploy possible in the meantime. Full record:
-> `docs/AUTH.md` → *The plan this serves*.
+> `.claude/rules/AUTH.md` → *The plan this serves*.
 >
 > **Reframing it is not removing it.** Adding your own Anthropic key stays a
 > live feature on the Space — distant from the identity plan, independent of
 > it, and working. A visitor who already has an Anthropic account should always
-> be able to bring their key and pay nothing. `docs/AUTH.md` → *BYOK stays*.
+> be able to bring their key and pay nothing. `.claude/rules/AUTH.md` → *BYOK stays*.
 
 **One Docker image for every destination.** Spaces takes a `Dockerfile`; so does
 Docker Compose on a VPS or on the laptop in `docs/ops/LAPTOP8.md`. There is no
@@ -229,14 +229,22 @@ Each line in the workflow's *Build the Space tree* step is a decision:
 |---|---|
 | `.claude/` | local tooling config, and Jelena's own working rules |
 | `.CLAUDE.md` | the original brief — hers |
-| `other_agent.md` | the defect inventory. All fixed, still not a public document |
+| `.claude/rules/other_agent.md` | the defect inventory. All fixed, still not a public document |
 | `.github/` | CI belongs to GitHub, not to the Space |
 | `docs/jelena/` | Jelena's own notes — gitignored, removed again defensively |
 | `docs/ops/` | the laptop plans: her home network and what is exposed on it. Gitignored, and the removal that matters most if a gitignore rule is ever lost |
 
-**Kept, deliberately:** `docs/` and `CLAUDE.md`. The documentation is the
-strongest part of the project, and `CLAUDE.md` showing how the work was directed
-is interesting rather than embarrassing. `tests/` too — 159 of them is evidence.
+**Kept, deliberately:** `README.md` and `CLAUDE.md`. `CLAUDE.md` showing how the
+work was directed is interesting rather than embarrassing, and `tests/` too —
+177 of them is evidence.
+
+**Changed 2026-07-31:** the working documents used to be `docs/` and were
+published with the Space. They now live in `.claude/rules/`, which this workflow
+deletes wholesale, so the Space carries its README and the code and nothing
+else. Jelena's decision: a repository should read the way any GitHub repository
+reads — README for whoever arrives — and the reasoning belongs beside the
+tooling that consumes it. The documentation is still the strongest part of the
+project; it is simply not the front page.
 
 The workflow also **refuses to run** if `.env`, `rag.db` or `related/` somehow
 appear in a checkout, or if any file exceeds 10 MB (Hugging Face needs Git LFS
@@ -267,7 +275,7 @@ The push itself is `hf upload … --repo-type=space --delete="*"`, a mirror rath
 than an accretion, so a file removed here leaves the public Space as well.
 
 The step-by-step, including the GHCR side and what to do when it fails:
-**`docs/MANUAL-GITHUB.md`**.
+**`.claude/rules/MANUAL-GITHUB.md`**.
 
 ## The Space image — still to build
 

@@ -73,7 +73,7 @@ was considered for them and left out.
 | **A reverse proxy and TLS certificates on the laptop** | Cloudflare Tunnel terminates TLS at the edge and needs no inbound port. Caddy would be a second thing to renew and expose | 🔒 |
 | **Pushing to the Space from a local machine** | One direction only, from CI. A hand-push from a laptop is how the Space and the repo drift | 🔒 |
 | **`docs/` inside the Docker image** | Not needed to run the app, and it would invalidate the layer cache on every documentation edit. Docs still reach the Space — the workflow pushes the *repo*, and Hugging Face builds the image from it. Two different things | 🔒 |
-| **Running the test suite before deploy** | **Not a decision — an omission.** `deploy-space.yml` pushes on any commit to `main` with no gate. 175 tests run in ~44 s with no network; they should run first and block the push. Cheap to add, and it is the next CI change worth making | ⚠️ |
+| **Running the test suite before deploy** | **Not a decision — an omission.** `deploy-space.yml` pushes on any commit to `main` with no gate. 177 tests run in ~44 s with no network; they should run first and block the push. Cheap to add, and it is the next CI change worth making | ⚠️ |
 | **Type-checking and `tsc` in CI** | Same. Both are clean locally and neither is enforced anywhere | ⚠️ |
 
 ## Kept, and not to be removed
@@ -109,7 +109,7 @@ and must not.
 ## Not in this file: things that are built and simply untested
 
 There used to be a "built but never run" table here. It has moved to
-`docs/CONTINUE.md` → **"Built and alive — but not yet run"**, because in a
+`.claude/rules/CONTINUE.md` → **"Built and alive — but not yet run"**, because in a
 document titled *Decided not to build* it read as a fourth category of
 abandonment. It is the opposite: the sentence-transformers provider and the
 whole Docker path are **shipped, committed and required**. They have simply

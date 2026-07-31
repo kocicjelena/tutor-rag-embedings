@@ -2,7 +2,7 @@
 
 > ## Jelena — how to start the next session
 >
-> **Open a new session and say: `please read docs/CONTINUE.md`.**
+> **Open a new session and say: `please read .claude/rules/CONTINUE.md`.**
 >
 > Not `/resume`. `/resume` reloads an entire previous conversation — every tool
 > call, every file I read, every dead end — before it can do anything. This
@@ -27,15 +27,39 @@ deployment path (Dockerfile, base image, two GitHub workflows). Before that,
 2026-07-30: the MCP layer, tool calling, bring-your-own-key, and the two tutor
 bugs. Before that: Milestone 1 end to end, the model export format (tier 1).
 
+## The documents moved — 2026-07-31
+
+**`docs/*.md` → `.claude/rules/*.md`**, and `other_agent.md` with them. Jelena's
+decision: a repository should read the way any GitHub repository reads —
+`README.md` for whoever arrives — and *"my structure with making a folder docs
+for you is inappropriate"*. `.claude/` is where the tooling lives, so the
+working documents live beside it.
+
+Three things a future session needs to know about it:
+
+- **They are still tracked in git.** That is not an accident and must not be
+  undone. `docs/` was once ignored wholesale, nothing carried forward between
+  sessions, and Jelena diagnosed that as a real bug. Moving is not hiding.
+- **Do not recreate `docs/`.** What remains there is hers and untracked:
+  `docs/jelena/` (off-limits) and `docs/ops/` (private, readable). Your own
+  records go in `.claude/rules/` now — including the *"the plan is to have X,
+  not built, reasons for / against"* deferrals that `~/.claude/CLAUDE.md` asks
+  for in `docs/`.
+- **The Space now gets README and code only.** `deploy-space.yml` deletes
+  `.claude/` wholesale, which is one line doing what a list of `rm`s used to.
+
+`README.md` is the public documentation and was rewritten for that: it now
+carries the Docker workflow and points at `.claude/rules/` for the reasoning.
+
 ## Read in this order
 
 1. `CLAUDE.md` — rules and the **Decided** list. Enough to start.
-2. `docs/DECISIONS.md` — what was deliberately **not** built, and why. Read it
+2. `.claude/rules/DECISIONS.md` — what was deliberately **not** built, and why. Read it
    before adding anything; it exists so the same arguments are not had twice.
-3. `docs/TODO.md` — what's next, and what's waiting on Jelena.
-4. Only if you need them: `docs/PLAN.md` (architecture, deployment, the model
-   format), `docs/DEPLOY-HF.md` (the Space), `other_agent.md` (what was broken),
-   `docs/MANUAL.md` (how to run and extend).
+3. `.claude/rules/TODO.md` — what's next, and what's waiting on Jelena.
+4. Only if you need them: `.claude/rules/PLAN.md` (architecture, deployment, the model
+   format), `.claude/rules/DEPLOY-HF.md` (the Space), `.claude/rules/other_agent.md` (what was broken),
+   `.claude/rules/MANUAL.md` (how to run and extend).
 
 > `docs/ops/` is private but **yours to read** — infrastructure plans for
 > Jelena's own machines, written for a session to execute.
@@ -61,7 +85,7 @@ Tools: Claude decides what to search, the loop runs it over MCP, and every call
 appears in the trace panel.
 
 - `uv run fastapi dev app/main.py` + `cd web && npm run dev`
-- **175 tests** (~44 s, no network), `pyright` strict clean, `tsc` clean
+- **177 tests** (~44 s, no network), `pyright` strict clean, `tsc` clean
 - Verified against live Ollama, direct and through the Next.js proxy
 
 Not built yet: Ollama tool calling, rate limiting (Milestone 4), deployment,
@@ -88,7 +112,7 @@ and will not export. They still recall normally.
 
 ## Latest: the MCP layer ✅
 
-Full design in `docs/MCP.md`. `app/mcp/` is four files: `context.py` (the tenant
+Full design in `.claude/rules/MCP.md`. `app/mcp/` is four files: `context.py` (the tenant
 boundary), `tools.py` (the tool bodies, with no MCP import), `server.py` (FastMCP
 plus the descriptions, which are prompt text), `client.py` (a real client session).
 
@@ -108,7 +132,7 @@ Three things worth carrying forward, all of them in the hard rules now:
 
 ## Latest: identity, and who pays for Claude ✅
 
-Full record and the AWS/Auth0 checklist: **`docs/AUTH.md`** — and read *The
+Full record and the AWS/Auth0 checklist: **`.claude/rules/AUTH.md`** — and read *The
 plan this serves* at the top of it before describing this app to anyone.
 
 **The app is meant to issue identity.** A user registers with an email, the app
@@ -140,7 +164,7 @@ owner fails *silently*. `ToolContext.owner_id` is typed `uuid.UUID` so the
 handle cannot slip in, and the MCP shape test now rejects `public_id` and
 `handle` as tool arguments.
 
-## Latest: the vector layer ✅ — both proposals built, `docs/VECTORS.md`
+## Latest: the vector layer ✅ — both proposals built, `.claude/rules/VECTORS.md`
 
 **Streaming ingestion.** Your `send()`/`close()` idea, in the form that can
 `await`: PEP 342 generators are synchronous, so the pipeline uses PEP 525's
@@ -209,7 +233,7 @@ defining the event protocol first.
 ## Latest: the status page ✅ — the app reporting on itself
 
 `GET /api/v1/status/`, `app/services/capabilities.py`, and `/status` in the UI.
-Design notes in `docs/API.md` under *status*.
+Design notes in `.claude/rules/API.md` under *status*.
 
 Jelena's ask: give "built but never run" a real home, with four states —
 **running, built, building**, and a fourth for things examined and deliberately
@@ -240,14 +264,14 @@ the docstring says why — the obvious optimisation is the wrong one here.
 
 ## Latest: the deployment path ✅ built, never run
 
-Full plan and a candid assessment of it: **`docs/DEPLOY-HF.md`**.
+Full plan and a candid assessment of it: **`.claude/rules/DEPLOY-HF.md`**.
 
 **One private repo, filtered at deploy time.** An earlier draft argued for a
 second generated repo; the reason given was wrong — `related/`, `docs/jelena/`
 and `rag.db` were all gitignored and never in git. One repo removes the real
 risk, which was divergence. The Space is public regardless of the repo's
 visibility, so `.github/workflows/deploy-space.yml` strips `.claude/`,
-`.CLAUDE.md`, `other_agent.md`, `docs/jelena/` and `docs/ops/` before pushing.
+`.CLAUDE.md`, `.claude/rules/other_agent.md`, `docs/jelena/` and `docs/ops/` before pushing.
 
 **The Ollama base image is separate** (`deploy/ollama-base/`), on GHCR, built
 manually plus monthly. Ollama's Linux release is 1.36 GB — mostly GPU runners
@@ -289,12 +313,12 @@ branch before committing again — the local checkout is on `main` now.
 Still Jelena's, and now the only blockers: **run the base-image
 workflow**, and **make the GHCR package public**. Written out step by step, with
 the failure table and both `CR_PAT` and CI routes for the Ollama image, in
-**`docs/MANUAL-GITHUB.md`** — new, and the answer to her notes 4–7 in `TODO.md`.
+**`.claude/rules/MANUAL-GITHUB.md`** — new, and the answer to her notes 4–7 in `TODO.md`.
 
 ## Latest: the browser store ✅ — chunks live in context now
 
 Full record, including the NextAuth plan that has **not** been built:
-**`docs/CONTEXT-AUTH.md`**. The conventions behind it, read out of Jelena's
+**`.claude/rules/CONTEXT-AUTH.md`**. The conventions behind it, read out of Jelena's
 three other Next.js projects (read-only, nothing touched):
 **`.claude/skills/nextjs-context-auth/SKILL.md`**.
 
@@ -327,11 +351,11 @@ clicked.** Nobody has watched a stream finish in a browser since the change.
 
 **Why:** a Hugging Face Docker Space needs PRO ($9/month); only Static Spaces
 are free and this app cannot be static. The full record, with the three routes
-and their costs, is at the top of `docs/DEPLOY-HF.md`. Jelena's decision: build
+and their costs, is at the top of `.claude/rules/DEPLOY-HF.md`. Jelena's decision: build
 and run it **here**, which costs nothing and is where the first real
 `docker build` was always going to teach the most.
 
-**Written:** `compose.yaml` at the repo root, and `docs/MANUAL.md` →
+**Written:** `compose.yaml` at the repo root, and `.claude/rules/MANUAL.md` →
 *Running it in Docker on your own machine* (install, build, **stop/start**,
 logs, where the database lives, how to back it up while running).
 
@@ -393,7 +417,7 @@ button and a drop-target on `/tutor`), then tier 2 (`Modelfile` export),
 seed-on-startup, and rate limiting before the URL is shared.
 
 **One cheap CI change worth making early:** `deploy-space.yml` pushes on any
-commit to `main` with no test gate. 175 tests run in ~44 s with no network.
+commit to `main` with no test gate. 177 tests run in ~44 s with no network.
 They should run first and block the push. Recorded in `DECISIONS.md` as an
 omission rather than a decision.
 
@@ -465,7 +489,7 @@ had been sharing one constant, which is why they were coupled at all.
   run on a free Colab/Kaggle T4, never here and never on the free Space.
   jelena: live sqlite issues for later. Focus is on building context for the app and making first, dummy publishing
 
-  **Recorded, 2026-07-31:** `docs/TODO.md` → *SQLite — postponed on purpose, and
+  **Recorded, 2026-07-31:** `.claude/rules/TODO.md` → *SQLite — postponed on purpose, and
   the first thing to trace back*. It lists what already exists (WAL,
   `busy_timeout`, `/data`, vectors in the same file — do not rebuild those),
   what still has to be written (backup + restore, the persistence decision, the

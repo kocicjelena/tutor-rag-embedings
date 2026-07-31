@@ -177,7 +177,7 @@ Four things that must not slip:
    cookie; `components/SignIn.tsx` calls `signIn("credentials")`. Delete
    `web/app/api/auth/route.ts` only when nothing reads it.
 4. `AUTH_SECRET` into the Space secrets *before* pushing that branch.
-5. Cognito as a second provider, when the pool exists (`docs/AUTH.md`).
+5. Cognito as a second provider, when the pool exists (`.claude/rules/AUTH.md`).
 
 Steps 2–4 are one session's work and touch no Python. Step 5 is the one that
 needs the AWS console, and it is the only part waiting on anything.

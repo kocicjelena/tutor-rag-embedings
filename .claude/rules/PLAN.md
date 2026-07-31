@@ -416,7 +416,7 @@ The app should produce the **input** and the **recipe**, and never run the train
 
 - [ ] `GET …/model/export?format=jsonl` — the same lessons as chat-format training pairs.
       Perhaps twenty lines on top of tier 1.
-- [ ] A documented notebook recipe in `docs/MANUAL.md`.
+- [ ] A documented notebook recipe in `.claude/rules/MANUAL.md`.
 
 The numbers, checked 2026-07-28: Unsloth fits a LoRA fine-tune of Llama 3.1 8B **in 8 GB of
 VRAM** at 2K context, and its export merges the adapter, converts through llama.cpp and
@@ -466,7 +466,7 @@ real question and gave up below its own 0.2 threshold, where retrieval put the r
 first at 0.519.
 
 **The `PATCH /users/me` privilege escalation belongs to the hardening milestone.** Per your
-note in `TODO.md`. The defect itself is fixed (`other_agent.md` #2 — `UserUpdateMe` no longer
+note in `TODO.md`. The defect itself is fixed (`.claude/rules/other_agent.md` #2 — `UserUpdateMe` no longer
 inherits `UserBase`), so what belongs in Milestone 4 is the *class* of problem: authorisation
 review, audit logging of privilege changes, and the anonymous/abuse policies — which the
 public deploy in §6 makes concrete rather than theoretical.

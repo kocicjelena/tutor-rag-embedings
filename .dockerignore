@@ -49,7 +49,7 @@ web/tsconfig.tsbuildinfo
 .claude
 .CLAUDE.md
 tests/
-other_agent.md
+.claude/rules/other_agent.md
 Dockerfile
 .dockerignore
 README.md

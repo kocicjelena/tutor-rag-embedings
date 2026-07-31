@@ -9,7 +9,7 @@ The split matters. `tools.py` knows nothing about MCP, so the tools are testable
 as ordinary functions and can be reached by a second transport later without
 being rewritten. `server.py` is only registration and description text.
 
-See `docs/MCP.md` for the design, and `docs/TODO.md` Milestone 3 for what is
+See `.claude/rules/MCP.md` for the design, and `.claude/rules/TODO.md` Milestone 3 for what is
 still missing (tool-calling in the providers, which is what finally lights up
 the tool-trace panel in the UI).
 """

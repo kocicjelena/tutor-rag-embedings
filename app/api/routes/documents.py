@@ -49,7 +49,7 @@ async def _process_document(
             # The streaming path: chunks are embedded and written in batches,
             # so peak memory is one batch rather than the whole document. The
             # tutor still uses `rag.ingest_document` — one short lesson, where
-            # streaming buys nothing. See `docs/VECTORS.md`.
+            # streaming buys nothing. See `.claude/rules/VECTORS.md`.
             count = await ingest_stream.ingest_streaming(
                 session=session,
                 owner_id=owner_id,

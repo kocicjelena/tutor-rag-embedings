@@ -6,8 +6,8 @@ Next.js frontend that visualises agent/tool execution.
 jelna: * Do not rewrite anything, if not said so i chat or as jelena:
 > **Do not read anything in `docs/jelena/`.** Her own reminders — hers to keep, not session
 > input. That now includes `ORIGINAL_BRIEF.md`, `OIDC.md` and `CLAUDE_PROMPT.md`. Everything
-> that governs this codebase has been lifted out of them and into this file, `docs/PLAN.md`
-> and `docs/TODO.md`. Don't open them for context, don't cite them as a source, don't ask her
+> that governs this codebase has been lifted out of them and into this file, `.claude/rules/PLAN.md`
+> and `.claude/rules/TODO.md`. Don't open them for context, don't cite them as a source, don't ask her
 > to reconcile them. If something seems missing, ask her directly.
 >
 > **`docs/ops/` is different: private, but yours to read.** Gitignored because it describes
@@ -29,7 +29,7 @@ jelna: * Do not rewrite anything, if not said so i chat or as jelena:
 ## API — built and working
 
 All under `/api/v1`. Every route is owner-scoped; `/health` is the only unauthenticated
-one. Full table with auth levels, purposes and the Next.js proxy routes: `docs/API.md`.
+one. Full table with auth levels, purposes and the Next.js proxy routes: `.claude/rules/API.md`.
 
 | Group | Routes | Note |
 |---|---|---|
@@ -48,7 +48,7 @@ one. Full table with auth levels, purposes and the Next.js proxy routes: `docs/A
 Planned, not built: **Ollama tool calling** (one more `stream_turn`; the loop is
 provider-neutral and needs no change), an outward Streamable HTTP transport, rate
 limiting and audit log (Milestone 4), and registration + federated login (waiting on
-Jelena's IdP credentials — `docs/AUTH.md`).
+Jelena's IdP credentials — `.claude/rules/AUTH.md`).
 
 ## Decided (don't re-litigate)
 
@@ -91,7 +91,7 @@ handle cannot be passed by accident.
    only *generation* is. Don't add a "Claude embeddings" provider — it does not exist.
 3. **`vectors.search()` takes `owner_id` as a required positional argument.** Never add an
    overload that makes it optional. This is what prevents the cross-tenant leak that existed in
-   the original code — see `docs/jelena/ORIGINAL_BRIEF.md` history and `other_agent.md` finding #1.
+   the original code — see `docs/jelena/ORIGINAL_BRIEF.md` history and `.claude/rules/other_agent.md` finding #1.
 4. **`UserUpdate` must not inherit `UserBase`.** Inheriting it exposes `is_superuser` to
    `PATCH /users/me` and lets any user self-promote. Declare its fields explicitly.
 5. **One embedding space per index, and a search reads exactly one index.** `vec0` fixes a
@@ -101,7 +101,7 @@ handle cannot be passed by accident.
    the old model becomes unreachable until `app/scripts/reembed.py` runs. **Never union
    two indexes to "find more".** Distances from different models are not on a common
    scale — the ranking would look fine and mean nothing. Mark it in the UI instead; that
-   is Jelena's decision, recorded in `docs/VECTORS.md`.
+   is Jelena's decision, recorded in `.claude/rules/VECTORS.md`.
 6. **Never commit `related/`.** It contains a checked-in virtualenv and (until rotated) live
    credentials. It is reference material only.
 7. **No MCP tool takes an owner.** A tool's arguments are chosen by the *model*, so an
@@ -111,11 +111,11 @@ handle cannot be passed by accident.
 8. **A user's Anthropic key is never persisted.** Only `sha256` + a fingerprint go
    in `user_api_key`; the plaintext travels per request in `X-Anthropic-Key` and is
    dropped. Never add an encrypted-key column, never add a route that returns a key,
-   never log one. That is the whole guarantee — see `docs/AUTH.md`.
+   never log one. That is the whole guarantee — see `.claude/rules/AUTH.md`.
 9. **Never open an MCP session outside `app/mcp/client.tool_session`.** The caller must be
    bound *before* the server task is spawned, or anyio's context copy misses it and every
    call reads whichever user arrived first. Also: nothing raises inside a session block —
-   an anyio task group wraps it in an `ExceptionGroup`. Both in `docs/MCP.md`.
+   an anyio task group wraps it in an `ExceptionGroup`. Both in `.claude/rules/MCP.md`.
 
 ## Claude API specifics
 
@@ -151,12 +151,13 @@ app/
     capabilities.py     the self-report behind GET /status/ — probes, not claims
     providers/          base (Protocols), ollama, claude, sentence_transformers, registry
   scripts/    check_providers.py, reembed.py
-  mcp/        context (the tenant boundary), tools, server, client — see docs/MCP.md
+  mcp/        context (the tenant boundary), tools, server, client — see .claude/rules/MCP.md
   api/routes/ login, users, documents, query, providers, mcp
 web/          Next.js 16 frontend
   context/GlobalContext.tsx   the store: split { state, actions }, mounted in app/layout.tsx
   reducers/ types/interfaces/ one slice per concern — `stream` holds the chunk being received
-docs/         see docs/TODO.md for what's next
+.claude/rules/  every working document — plans, decisions, handoff. See TODO.md for what's next
+docs/           untracked, and hers: jelena/ (off-limits) and ops/ (private, readable)
 ```
 
 ## Conventions
@@ -180,16 +181,23 @@ cd web && npm run dev            # UI on :3000
 
 ## Docs map
 
-`docs/API.md` every route and page, available vs planned ·
-`docs/PLAN.md` architecture, **deployment**, and the model export format ·
-`docs/MCP.md` the tool layer: the four tools, the tenant boundary, the session rule ·
-`docs/TODO.md` what's next + your duties · `docs/MANUAL.md` user + developer guide ·
-`docs/CONTINUE.md` session handoff · `other_agent.md` full defect inventory ·
-`docs/DEPLOY-HF.md` the Space: the plan, and a candid assessment of it ·
-`docs/MANUAL-GITHUB.md` the two workflows, what Jelena clicks, and what to read when a deploy fails ·
-`docs/CONTEXT-AUTH.md` the browser store (built) and the NextAuth plan (not built) ·
-`docs/VECTORS.md` the vector layer: streaming ingestion, per-dimension indexes ·
-`docs/AUTH.md` identity, and who pays for Claude
+**They live in `.claude/rules/`, not `docs/` — changed 2026-07-31 by Jelena.** A
+repository should read the way any GitHub repository reads: `README.md` is for
+whoever arrives, and the working documents sit beside the tooling that consumes
+them. They are still tracked in git, deliberately: a session has to be able to
+pick them up, and the last time they were outside git nothing carried forward.
+**Do not recreate `docs/`** — what is left there is hers and untracked.
+
+`.claude/rules/API.md` every route and page, available vs planned ·
+`.claude/rules/PLAN.md` architecture, **deployment**, and the model export format ·
+`.claude/rules/MCP.md` the tool layer: the four tools, the tenant boundary, the session rule ·
+`.claude/rules/TODO.md` what's next + your duties · `.claude/rules/MANUAL.md` user + developer guide ·
+`.claude/rules/CONTINUE.md` session handoff · `.claude/rules/other_agent.md` full defect inventory ·
+`.claude/rules/DEPLOY-HF.md` the Space: the plan, and a candid assessment of it ·
+`.claude/rules/MANUAL-GITHUB.md` the two workflows, what Jelena clicks, and what to read when a deploy fails ·
+`.claude/rules/CONTEXT-AUTH.md` the browser store (built) and the NextAuth plan (not built) ·
+`.claude/rules/VECTORS.md` the vector layer: streaming ingestion, per-dimension indexes ·
+`.claude/rules/AUTH.md` identity, and who pays for Claude
 
 **Private, read it:** `docs/ops/` — infrastructure plans for Jelena's own machines.
 **Off-limits, never read:** `docs/jelena/` — see the note at the top.

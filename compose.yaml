@@ -5,7 +5,7 @@
 #     docker compose stop               stop, keep the data
 #     docker compose start              start it again
 #
-# Full walk-through, including installing Docker: docs/MANUAL.md → "Running it
+# Full walk-through, including installing Docker: .claude/rules/MANUAL.md → "Running it
 # in Docker on your own machine".
 #
 # **The same image the Space would have run.** Nothing here is laptop-specific
@@ -23,15 +23,9 @@ x-app: &app
     context: .
     args:
       # Prebuilt on GHCR by .github/workflows/ollama-base.yml. It must be
-      # public, or `docker login ghcr.io` first — see docs/MANUAL-GITHUB.md.
+      # public, or `docker login ghcr.io` first — see .claude/rules/MANUAL-GITHUB.md.
       OLLAMA_BASE: ghcr.io/kocicjelena/mcp-py-ollama:nomic-embed-text
   image: mcp-py:local
-  volumes:
-    # A named volume, not a bind mount. SQLite over a bind mount into a
-    # different filesystem is the one arrangement where its locking is not
-    # guaranteed, and this is a database with a vector index inside it.
-    # `docker compose down` keeps it; only `down -v` deletes it.
-    - rag-data:/data
   env_file:
     # Optional: ANTHROPIC_API_KEY and anything else you keep locally. It is
     # gitignored and never enters the image — .dockerignore excludes it.
@@ -52,6 +46,12 @@ services:
   app:
     <<: *app
     network_mode: host
+    volumes:
+      # A named volume, not a bind mount. SQLite over a bind mount into a
+      # different filesystem is the one arrangement where its locking is not
+      # guaranteed, and this is a database with a vector index inside it.
+      # `docker compose down` keeps it; only `down -v` deletes it.
+      - rag-data:/data
     environment:
       ENVIRONMENT: local
       MANAGE_OLLAMA: "0"          # the host owns it; start.sh must not start a second
@@ -71,6 +71,12 @@ services:
     profiles: [isolated]
     ports:
       - "7860:7860"
+    volumes:
+      # Its OWN volume, deliberately. SQLite has one writer, and two containers
+      # mounting one file is the easiest way to find that out the hard way. It
+      # also means this mode starts from an empty database — which is what
+      # reproducing a fresh server should do.
+      - rag-data-isolated:/data
     environment:
       ENVIRONMENT: local
       MANAGE_OLLAMA: "1"
@@ -78,3 +84,4 @@ services:
 
 volumes:
   rag-data:
+  rag-data-isolated:

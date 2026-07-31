@@ -1,7 +1,7 @@
 """The learner's model: recording, exporting, importing.
 
 "The model" in this app is the learner's corpus — the lessons they were taught,
-plus metadata. See `docs/PLAN.md` §7 for why that is a corpus rather than a set
+plus metadata. See `.claude/rules/PLAN.md` §7 for why that is a corpus rather than a set
 of weights, and how the other two export tiers derive from this one.
 
 The point of this module is that **record, import and seed are one code path**.

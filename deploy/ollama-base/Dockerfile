@@ -21,7 +21,7 @@
 # Jelena's laptops. The prune step below removes them and prints the before and
 # after, because an unverified size claim in a comment is worth nothing.
 # **Read the real number off the first build and record it in
-# docs/DEPLOY-HF.md.** If the pruned image is still over ~800 MB, the fallback
+# .claude/rules/DEPLOY-HF.md.** If the pruned image is still over ~800 MB, the fallback
 # is discussed there.
 
 FROM debian:12-slim

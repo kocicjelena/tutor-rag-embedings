@@ -50,7 +50,7 @@ Worth a session that is not also a deployment.
 
 **3. Context + `[...nextauth]`.** The context half is **built**; NextAuth is
 planned in full and not started. Everything about both is in
-**`docs/CONTEXT-AUTH.md`**, and the conventions themselves — read out of
+**`.claude/rules/CONTEXT-AUTH.md`**, and the conventions themselves — read out of
 `~/multichain-main/my`, `~/ollama8jul` and `~/my-sei-dapp`, all read-only,
 nothing touched — are written once as a skill:
 **`.claude/skills/nextjs-context-auth/SKILL.md`**.
@@ -84,19 +84,19 @@ Left to do on this, in order:
       `lib/api.ts::getToken()` onto `auth()`, `AUTH_SECRET` into the Space
       secrets **before** that branch is pushed
 - [ ] **Cognito as a second provider** — the only part waiting on the AWS
-      console (`docs/AUTH.md`)
+      console (`.claude/rules/AUTH.md`)
 - [ ] Optional, when a fourth slice appears: swap the manual `rootReducer` for
       `react-combine-reducers`, as in `~/ollama8jul/globalx/`. Not before —
       a dependency in `npm ci` costs more than six lines do
 
 **4. The Space.** Done on your side, and the workflow now matches it:
 `HF_SPACE: kjelenak/my_tutor`, no `HF_TOKEN` anywhere, trusted publisher via
-GitHub OIDC. See `docs/MANUAL-GITHUB.md`.
+GitHub OIDC. See `.claude/rules/MANUAL-GITHUB.md`.
 
 **5 + 7. "Docker is not made, and it says it is built."** Both are true and the
 sentence to keep is: the Docker *files* are written, reviewed and typed; no
 image has ever been built, here or anywhere. You need no Docker on this machine
-— GitHub's runners build it. Instructions: `docs/MANUAL-GITHUB.md`.
+— GitHub's runners build it. Instructions: `.claude/rules/MANUAL-GITHUB.md`.
 
 **6. An independent Docker image for nomic.** It already has its own workflow —
 `ollama-base.yml` — and that is exactly what it publishes: Ollama plus
@@ -200,7 +200,7 @@ is two unknowns.
 
 ### How it integrates — the order that makes it simple
 
-1. Context store ✅ *(done — `docs/CONTEXT-AUTH.md`)*
+1. Context store ✅ *(done — `.claude/rules/CONTEXT-AUTH.md`)*
 2. NextAuth in front of the existing FastAPI login — identity settles, and any
    new user column is known *before* the migration gap is tested
 3. Then the database work above, in one pass: backup + restore, the persistence
@@ -224,7 +224,7 @@ plainly, and inventing 15 fake CVs is an afternoon.
 Simpler alternatives, if you'd rather spend the effort on the MCP layer:
 a small handbook, or a set of product manuals. Either way the app doesn't
 change — only the seed documents do.
-jelena: we will focus on finishing app with tutor, fixing bugs, make updates on problems and make deployment. The plan will be left in docs/PLAN.md 
+jelena: we will focus on finishing app with tutor, fixing bugs, make updates on problems and make deployment. The plan will be left in .claude/rules/PLAN.md 
 **2. Hugging Face Spaces — two things to know before committing**
 - **No Ollama.** The deployed app is Claude-only, so it needs `ANTHROPIC_API_KEY`
   as a Space secret. Locally you keep both providers.
@@ -237,7 +237,7 @@ jelena:seed-on-startup with dummy models made from learning. that models are in 
 
 ## Done — the learning tutor ✅
 
-Ported into this repo and wired to real retrieval. Plan: `docs/PLAN-M2.md`.
+Ported into this repo and wired to real retrieval. Plan: `.claude/rules/PLAN-M2.md`.
 
 - `POST /tutor/teach` — streams an explanation (generation only, no retrieval)
 - `POST /tutor/interactions` — indexes the exchange, synchronously, so recall
@@ -257,7 +257,7 @@ meaning between two sentences"*:
 jelena: please print to the user, in nice appealing format on web, that app uses semantic similarity rather then mathematical calculations (cosine similarity). However that should be just in plan.md (sin similarity is used more often and can be implemented in future, but not before finishing at least 20 session following)
 ## Milestone 3: MCP — the layer is built, the producer is not
 
-Design and reasoning: `docs/MCP.md`.
+Design and reasoning: `.claude/rules/MCP.md`.
 
 - [x] **`app/mcp/`** ✅ *built 2026-07-30.* `context.py` (the tenant boundary),
       `tools.py` (four tools, no MCP import), `server.py` (FastMCP +
@@ -301,7 +301,7 @@ Still missing — **postponed, not in this milestone** (your note in `MCP.md`):
 ## Identity + who pays for Claude — started 2026-07-30
 
 Full record, including what you must do in the AWS (or Auth0) console:
-**`docs/AUTH.md`**.
+**`.claude/rules/AUTH.md`**.
 
 - [x] **Derived public user id** (`app/core/identity.py`) — one-way HMAC of the
       email, safe to put in a URL. Exposed as `public_id` on `UserPublic`
@@ -326,7 +326,7 @@ Full record, including what you must do in the AWS (or Auth0) console:
 
 ## The vector layer ✅ built 2026-07-31
 
-**`docs/VECTORS.md`** has the full reasoning and what changed from the sketch.
+**`.claude/rules/VECTORS.md`** has the full reasoning and what changed from the sketch.
 Both proposals are additive; the working 768-dimension path was not touched.
 
 - [x] **Streaming ingestion with async generators.** Your `send()`/`close()`
@@ -380,10 +380,10 @@ Only if the showcase needs it. The brief mentioned "firewalls / suspicious
 activity", but per your note authorisation is a separate session.
 
 - [ ] Rate limiting, audit log, structured logging
-jelena: you have the writtings in other_agent.md about the user anonymous who can patch administrator (user/me). That kind of problems goes here
+jelena: you have the writtings in .claude/rules/other_agent.md about the user anonymous who can patch administrator (user/me). That kind of problems goes here
 ## Deploy
 
-**Plan written: `docs/PLAN.md` → "Deployment".** It answers the Next.js integration
+**Plan written: `.claude/rules/PLAN.md` → "Deployment".** It answers the Next.js integration
 question, compares EC2 / VPS / PaaS / free tiers for your projects as a whole, and
 states the conclusion: one Docker image, free on Hugging Face Spaces now, same image
 onto one ~€5/month VPS later. Not Vercel for this project; not EC2 for any of them.
@@ -408,7 +408,7 @@ Checklist (detail and reasoning in `PLAN.md` §6–§7):
 ## The model — export in three tiers
 
 Confirmed 2026-07-28: **the model is the learner's corpus** — lessons + metadata. Full
-reasoning in `docs/PLAN.md` §7, including why GGUF is a *different object* from JSON
+reasoning in `.claude/rules/PLAN.md` §7, including why GGUF is a *different object* from JSON
 rather than another way of writing it, and why the app should never run the training.
 
 Tier 1 is required. Tiers 2 and 3 are small additions on top of it.

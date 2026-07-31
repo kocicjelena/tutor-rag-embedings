@@ -7,7 +7,7 @@
 # has this repository configured as a **trusted publisher**, so the job proves
 # who it is with GitHub's OIDC token and gets back a Hugging Face token that
 # lives one hour and can write to that one Space and nothing else. Set up on the
-# Hub side, 2026-07-31; the full walk-through is docs/MANUAL-GITHUB.md.
+# Hub side, 2026-07-31; the full walk-through is .claude/rules/MANUAL-GITHUB.md.
 #
 # Three things it depends on, and each one fails the whole run if it drifts:
 #   1. `permissions: id-token: write` below — without it GitHub mints no OIDC
@@ -80,10 +80,12 @@ jobs:
 
           # Not published, even though this repo is private. Each line is a
           # decision, so add to it deliberately rather than by habit.
-          rm -rf .claude          # local tooling config, plus Jelena's own rules
+          # `.claude/` now carries the working documents too (rules/*.md), so
+          # this one line is what keeps the Space to its README and its code.
+          # The defect inventory, the handoff and the plans go with it.
+          rm -rf .claude          # tooling config, Jelena's rules, and .claude/rules/*.md
           rm -rf .github          # CI belongs to GitHub, not to the Space
           rm -f  .CLAUDE.md       # the original brief — hers
-          rm -f  other_agent.md   # the defect inventory: all fixed, still not a public document
 
           # Defensive: both are gitignored, so neither should ever be in a
           # checkout. If that ever changes, these are the lines that stop it

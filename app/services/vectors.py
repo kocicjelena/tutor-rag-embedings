@@ -25,7 +25,7 @@ Searching still cannot mix spaces — vectors from two models are not comparable
 and the distances would rank plausibly while meaning nothing. So a query
 searches exactly one table: the active provider's. Documents indexed under a
 different model are *reported* as unsearchable rather than silently missed; see
-`docs/VECTORS.md` and `app/scripts/reembed.py`.
+`.claude/rules/VECTORS.md` and `app/scripts/reembed.py`.
 """
 
 import re

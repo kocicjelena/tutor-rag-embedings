@@ -1,6 +1,6 @@
 """The model: export and import.
 
-"The model" here is the learner's corpus — see `docs/PLAN.md` §7. These tests
+"The model" here is the learner's corpus — see `.claude/rules/PLAN.md` §7. These tests
 pin the two properties that make the format worth having:
 
   * **it round-trips** — a file exported from one corpus imports into another

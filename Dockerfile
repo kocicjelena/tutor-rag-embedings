@@ -1,7 +1,7 @@
 # The app image — Next.js, FastAPI and Ollama in one container.
 #
 # One image, three destinations: the Hugging Face Space, the laptop in
-# docs/ops/LAPTOP8.md, and a VPS later. That is deliberate (docs/PLAN.md
+# docs/ops/LAPTOP8.md, and a VPS later. That is deliberate (.claude/rules/PLAN.md
 # §"The property that makes this low-risk") and it is why nothing in here is
 # Spaces-specific except the default port.
 #
@@ -177,7 +177,7 @@ ENV PATH="/opt/venv/bin:${PATH}" \
 #   off leaves the deployed app with no route to Claude at all, and the failure
 #   looks like a broken provider rather than a config choice. It is a distant,
 #   independent feature next to the identity plan — and it stays live. See
-#   docs/AUTH.md.
+#   .claude/rules/AUTH.md.
 #
 # SECRET_KEY and IDENTITY_PEPPER are deliberately absent. ENVIRONMENT=production
 # makes app/core/config.py refuse to start on a placeholder SECRET_KEY, and

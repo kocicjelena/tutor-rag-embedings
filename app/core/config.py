@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     # Switching this does not corrupt anything — each width has its own vec0
     # index — but documents indexed under the previous model become
     # **unsearchable** until `uv run python -m app.scripts.reembed`. The
-    # documents list reports that per document. See docs/VECTORS.md.
+    # documents list reports that per document. See .claude/rules/VECTORS.md.
     EMBEDDING_PROVIDER: Literal["ollama", "sentence_transformers"] = "ollama"
 
     # ─── Generation ──────────────────────────────────────────
@@ -153,7 +153,7 @@ class Settings(BaseSettings):
     # Real addresses belong in `.env`, which is gitignored — not here. This file
     # is committed, and a real email plus a real password baked into committed
     # source is precisely the leak found in `related/rag-fastapi-main`
-    # (`other_agent.md` #3). The defaults below are deliberately fake.
+    # (`.claude/rules/other_agent.md` #3). The defaults below are deliberately fake.
     FIRST_SUPERUSER: str = "admin@example.com"
     FIRST_SUPERUSER_PASSWORD: str = PLACEHOLDER
 

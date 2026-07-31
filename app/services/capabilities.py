@@ -254,7 +254,7 @@ CAPABILITIES: list[Capability] = [
         area="rag",
         summary="sqlite-vec, one index per embedding width, owner-scoped inside the index",
         declared="built",
-        doc="docs/VECTORS.md",
+        doc=".claude/rules/VECTORS.md",
         probe=_probe_vectors,
     ),
     Capability(
@@ -263,7 +263,7 @@ CAPABILITIES: list[Capability] = [
         area="rag",
         summary="Local, always. Anthropic ships no embeddings API",
         declared="built",
-        doc="docs/VECTORS.md",
+        doc=".claude/rules/VECTORS.md",
         probe=_probe_embedding,
     ),
     Capability(
@@ -277,7 +277,7 @@ CAPABILITIES: list[Capability] = [
             "the last, with no error and a plausible chunk count."
         ),
         declared="running",
-        doc="docs/VECTORS.md",
+        doc=".claude/rules/VECTORS.md",
     ),
     Capability(
         key="reembed",
@@ -291,7 +291,7 @@ CAPABILITIES: list[Capability] = [
             "badly what `uv run python -m app.scripts.reembed` does well."
         ),
         declared="built",
-        doc="docs/DECISIONS.md",
+        doc=".claude/rules/DECISIONS.md",
     ),
     Capability(
         key="sentence-transformers",
@@ -306,7 +306,7 @@ CAPABILITIES: list[Capability] = [
             "`uv sync` and go."
         ),
         declared="built",
-        doc="docs/VECTORS.md",
+        doc=".claude/rules/VECTORS.md",
         probe=_probe_sentence_transformers,
     ),
 
@@ -317,7 +317,7 @@ CAPABILITIES: list[Capability] = [
         area="llm",
         summary="Ollama or Claude, chosen per request",
         declared="built",
-        doc="docs/API.md",
+        doc=".claude/rules/API.md",
         probe=_probe_generation,
     ),
     Capability(
@@ -331,7 +331,7 @@ CAPABILITIES: list[Capability] = [
             "trained in the browser."
         ),
         declared="built",
-        doc="docs/PLAN.md",
+        doc=".claude/rules/PLAN.md",
         probe=_probe_tutor,
     ),
     Capability(
@@ -345,7 +345,7 @@ CAPABILITIES: list[Capability] = [
             "were for. Postponed, not blocked."
         ),
         declared="building",
-        doc="docs/MCP.md",
+        doc=".claude/rules/MCP.md",
     ),
 
     # ── MCP ──────────────────────────────────────────────────
@@ -355,7 +355,7 @@ CAPABILITIES: list[Capability] = [
         area="mcp",
         summary="Four tools over your own material, spoken over the real protocol",
         declared="built",
-        doc="docs/MCP.md",
+        doc=".claude/rules/MCP.md",
         probe=_probe_mcp,
     ),
     Capability(
@@ -371,7 +371,7 @@ CAPABILITIES: list[Capability] = [
             "milliseconds."
         ),
         declared="built",
-        doc="docs/MCP.md",
+        doc=".claude/rules/MCP.md",
         probe=_probe_agent,
     ),
     Capability(
@@ -386,7 +386,7 @@ CAPABILITIES: list[Capability] = [
             "the tenant boundary is a suggestion."
         ),
         declared="building",
-        doc="docs/MCP.md",
+        doc=".claude/rules/MCP.md",
     ),
 
     # ── Identity ─────────────────────────────────────────────
@@ -406,7 +406,7 @@ CAPABILITIES: list[Capability] = [
             "retrieval are what that identity accumulates and owns."
         ),
         declared="building",
-        doc="docs/AUTH.md",
+        doc=".claude/rules/AUTH.md",
     ),
     Capability(
         key="byok",
@@ -423,7 +423,7 @@ CAPABILITIES: list[Capability] = [
             "for its own models."
         ),
         declared="built",
-        doc="docs/AUTH.md",
+        doc=".claude/rules/AUTH.md",
         probe=_probe_byok,
     ),
     Capability(
@@ -442,7 +442,7 @@ CAPABILITIES: list[Capability] = [
             "becoming the definition of the app."
         ),
         declared="building",
-        doc="docs/AUTH.md",
+        doc=".claude/rules/AUTH.md",
     ),
     Capability(
         key="federated-login",
@@ -451,7 +451,7 @@ CAPABILITIES: list[Capability] = [
         summary="OIDC sign-in, and a public sign-up screen",
         detail="Waiting on identity-provider credentials. Nothing else is blocked by it.",
         declared="building",
-        doc="docs/AUTH.md",
+        doc=".claude/rules/AUTH.md",
     ),
 
     # ── Deploy ───────────────────────────────────────────────
@@ -468,7 +468,7 @@ CAPABILITIES: list[Capability] = [
             "Expect the first real build to find another."
         ),
         declared="built",
-        doc="docs/DEPLOY-HF.md",
+        doc=".claude/rules/DEPLOY-HF.md",
     ),
     Capability(
         key="rate-limiting",
@@ -480,7 +480,7 @@ CAPABILITIES: list[Capability] = [
             "Anthropic once per attempt should not stay unmetered."
         ),
         declared="building",
-        doc="docs/DECISIONS.md",
+        doc=".claude/rules/DECISIONS.md",
     ),
 
     # ── Explored, and deliberately refused ───────────────────
@@ -502,7 +502,7 @@ CAPABILITIES: list[Capability] = [
             "open."
         ),
         declared="exploring",
-        doc="docs/MCP.md",
+        doc=".claude/rules/MCP.md",
     ),
     Capability(
         key="x-merged-search",
@@ -517,7 +517,7 @@ CAPABILITIES: list[Capability] = [
             "offered as a command. Honest and cheap."
         ),
         declared="exploring",
-        doc="docs/VECTORS.md",
+        doc=".claude/rules/VECTORS.md",
     ),
     Capability(
         key="x-tool-owner",
@@ -533,7 +533,7 @@ CAPABILITIES: list[Capability] = [
             "of every tool signature, because this regression would be silent."
         ),
         declared="exploring",
-        doc="docs/MCP.md",
+        doc=".claude/rules/MCP.md",
     ),
     Capability(
         key="x-word-overlap",
@@ -548,7 +548,7 @@ CAPABILITIES: list[Capability] = [
             "Keeping it would have made an app about embeddings not use them."
         ),
         declared="exploring",
-        doc="docs/PLAN.md",
+        doc=".claude/rules/PLAN.md",
     ),
     Capability(
         key="x-localstorage-model",
@@ -564,7 +564,7 @@ CAPABILITIES: list[Capability] = [
             "and it is what recall actually answers from."
         ),
         declared="exploring",
-        doc="docs/PLAN.md",
+        doc=".claude/rules/PLAN.md",
     ),
     Capability(
         key="x-encrypted-keys",
@@ -579,7 +579,7 @@ CAPABILITIES: list[Capability] = [
             "caller's session and never on this server."
         ),
         declared="exploring",
-        doc="docs/AUTH.md",
+        doc=".claude/rules/AUTH.md",
     ),
     Capability(
         key="x-claude-embeddings",
@@ -593,7 +593,7 @@ CAPABILITIES: list[Capability] = [
             "sounding thing to add, and it cannot be added."
         ),
         declared="exploring",
-        doc="docs/DECISIONS.md",
+        doc=".claude/rules/DECISIONS.md",
     ),
 ]
 

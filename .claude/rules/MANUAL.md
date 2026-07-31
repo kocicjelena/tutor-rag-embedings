@@ -140,16 +140,53 @@ docker compose cp app:/data/backup.db ./rag-backup.db
 
 The vector index lives in the same file, so that one copy has the vectors too.
 
-### The other mode — no host Ollama
+### The second service — `app-isolated`, a server in a box
+
+**What it is, in two sentences.** `app-isolated` is the same image run the way a
+*server* runs it: one self-contained container that starts its own Ollama
+inside itself and depends on nothing already installed on this machine. The
+default `app` service is the opposite — it borrows the Ollama on your laptop —
+and having both means you can develop against your own models and still
+reproduce, exactly, what a rented machine would do.
+
+**Where it is.** Both services are defined in `compose.yaml` at the repository
+root; `app-isolated` sits below `app` and carries `profiles: [isolated]`, which
+is what keeps it out of the way. A service behind a profile is invisible to
+every ordinary `docker compose` command — `up`, `stop`, `logs` will not touch
+it unless you name the profile — so the daily commands stay short and nothing
+starts by accident.
+
+**How to run it:**
 
 ```bash
 docker compose --profile isolated up -d --build app-isolated
+docker compose --profile isolated logs -f app-isolated
+docker compose --profile isolated stop app-isolated
+docker compose --profile isolated down            # remove it, keep its data
 ```
 
-Self-contained: its own Ollama inside the container with only
-`nomic-embed-text`, which means embedding works and **generation needs Claude**.
-Use it to reproduce what a server or a Space does, not for daily work. Stop it
-with `docker compose --profile isolated stop app-isolated`.
+**What is different inside.** It sets `MANAGE_OLLAMA=1`, so `deploy/start.sh`
+starts the Ollama that is baked into the image rather than looking for yours,
+and that Ollama contains **only `nomic-embed-text`** — a generation model would
+add gigabytes to an image that has to be pulled by whatever hosts it. Embedding
+therefore works completely offline, and **generation has to be Claude**, either
+through a key in `.env` or through the bring-your-own-key panel in the UI. It
+also publishes a real port (`7860:7860`) instead of sharing the host's network,
+which is how it proves the container is reachable on its own terms rather than
+because everything happens to be on one machine.
+
+**It has its own database, and that is deliberate.** `app-isolated` mounts
+`rag-data-isolated`, not the `rag-data` your daily container uses. SQLite has a
+single writer, so two containers mounting one file is the shortest path to a
+corrupted database — and there is a second benefit: this mode always starts
+empty, which is exactly what "does a fresh server actually work?" should mean.
+Nothing you upload in isolated mode appears in the normal app, and nothing you
+have built up in the normal app is at risk while you experiment.
+
+**When to reach for it.** Before trusting a deploy — to a VPS, to the laptop in
+`docs/ops/LAPTOP8.md`, or to a paid Space — run this once and see the whole
+thing come up from nothing. If it works here and fails there, the difference is
+the host, not the app, and that is a much smaller thing to debug.
 
 ## Using it
 
@@ -214,10 +251,10 @@ app/
     agent.py           the tool-calling loop, and the corpus primer
     capabilities.py    the self-report behind GET /status/ — probes, not claims
     providers/         base (Protocols), ollama, claude, sentence_transformers, registry
-  mcp/                 context, tools, server, client — see docs/MCP.md
+  mcp/                 context, tools, server, client — see .claude/rules/MCP.md
   api/routes/          login, users, documents, query, tutor, providers, keys, mcp
   scripts/             check_providers.py, reembed.py
-tests/                 175 tests, no network required
+tests/                 177 tests, no network required
 web/                   Next.js 16 App Router
 ```
 
@@ -228,7 +265,7 @@ web/                   Next.js 16 App Router
 uv sync --extra dev
 uv sync --extra local-embed               # optional: sentence-transformers (~2 GB)
 uv run fastapi dev app/main.py            # :8000, auto-reload
-uv run pytest                             # 175 tests, ~44s, no network
+uv run pytest                             # 177 tests, ~44s, no network
 uv run pyright                            # strict, must stay clean
 uv run python -m app.scripts.check_providers   # diagnose provider setup
 uv run python -m app.scripts.reembed --dry-run # what a model change would cost
@@ -316,7 +353,7 @@ and each batch erases the last one, with no error and a plausible chunk count.
 
 ## Adding an MCP tool
 
-Full design in `docs/MCP.md`. Write the function in `app/mcp/tools.py` — a
+Full design in `.claude/rules/MCP.md`. Write the function in `app/mcp/tools.py` — a
 plain async function, no MCP import — and register it in `app/mcp/server.py`
 with a description written for a model to read. The catalogue, `GET /mcp/tools`
 and the agent all pick it up with no further edit.

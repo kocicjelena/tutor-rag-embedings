@@ -4,7 +4,7 @@ Report every issue you find, including ones you are uncertain about or consider 
 
 Your goal here is coverage: it is better to surface a finding that later gets filtered out than to silently drop a real bug. 
 
-For each finding, include your confidence level and an estimated severity so a downstream filter can rank them. Save findings in other_agent.md
+For each finding, include your confidence level and an estimated severity so a downstream filter can rank them. Save findings in .claude/rules/other_agent.md
 
 Design and implement LLM-powered applications using advanced techniques such as: Retrieval-Augmented Generation (RAG); Multi-agent systems/agent workflows; Context-aware, 
 Tool usage visualization (agent/tool execution display)
