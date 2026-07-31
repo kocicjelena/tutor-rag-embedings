@@ -294,6 +294,7 @@ thinking, and the failure table below covers what each one looks like.
 
 | Symptom | Where | What it means |
 |---|---|---|
+| `Node.js 20 is deprecated … forced to run on Node.js 24` | GitHub run log | A **warning**, not a failure — the run still worked. An action you *use* was built for an older runtime. Fix by bumping its version (`actions/checkout@v4` → `@v5`), never by editing YAML into this repo: the `runs: using: node24` snippet in GitHub's docs belongs to an action's own `action.yml`, and you do not own `actions/checkout` |
 | `invalid_grant` in *Push to the Space* | GitHub run log | The trusted-publisher claims do not match. Check branch, workflow filename, and the `spaces/` prefix |
 | `Error: Resource not accessible by integration` | GitHub run log | `permissions:` block missing or trimmed |
 | `denied` / `unauthorized` pulling `mcp-py-ollama` | **Space** build log | The GHCR package is still private — step 3 |

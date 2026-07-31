@@ -44,7 +44,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Refuse to publish anything that should not be public
         run: |
