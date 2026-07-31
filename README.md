@@ -165,8 +165,7 @@ store and the backend pipeline are not joined up yet. The design is that the
 front end drives the work rather than merely displaying it: results are produced
 by asynchronous generators, piped into coroutines that process them, and the
 outcome is held in React context — so the context is where a learning model is
-assembled and refined, and where the parts that turn out not to matter are
-dropped rather than kept forever. Today each half exists on its own: the backend
+assembled and refined. Today each half exists on its own: the backend
 streams and the store records, but the loop between them is not closed.
 
 **And the corpus is not yet a tool.** What you are taught is searchable material
