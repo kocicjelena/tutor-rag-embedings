@@ -265,6 +265,20 @@ returning nothing. And the app **reports on itself by measuring**, not by
 listing features — `/status` probes what it claims, and keeps a category for
 things that were examined and deliberately refused.
 
+A fourth thing is quieter but it is the reason this runs on ordinary hardware:
+**both ends of the pipeline are coroutines, and both are bounded.** Ingestion is
+an asynchronous generator that is fed chunks, embeds them a batch at a time and
+flushes what is left when it is closed, so a large upload costs one batch of
+memory instead of a whole document — and the delete that clears a document's old
+vectors was lifted out of it, because doing that per batch would have kept only
+the last one, silently and with no error. In the browser the streaming answer is
+drained by a single action inside the React provider rather than by whichever
+component happens to be on screen, so the stream has one owner and cannot be
+half-consumed by a component that unmounts. What the browser keeps is bounded on
+purpose: the current answer and nothing else — a new question clears the last
+one, nothing is copied into local storage, and the durable copy stays on the
+server, where it was already indexed.
+
 The direction underneath all of it is the part I care about most: the tutor is
 built so that what you are taught accumulates into a corpus that is *yours*,
 exportable and portable, on the way to a model that keeps learning from its own
