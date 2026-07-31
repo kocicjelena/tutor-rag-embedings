@@ -38,8 +38,8 @@ import type {
   TutorMode,
   TutorStats,
 } from "@/components/tutor/lib/types";
+import { useContextActions } from "@/context/GlobalContext";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
-import { readEventStream } from "@/lib/stream";
 
 let messageSeq = 0;
 const nextId = () => `m${++messageSeq}`;
@@ -78,6 +78,10 @@ export type LearningTutorState = {
 };
 
 export function useLearningTutor(): LearningTutorState {
+  // The chunk pipe. `runStream` is memoised in the provider, so it is a stable dependency for
+  // every useCallback below — it never re-creates `teach`.
+  const { runStream } = useContextActions();
+
   const [selectedTerm, setSelectedTerm] = useState(AI_TERMS[0].id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -157,26 +161,24 @@ export function useLearningTutor(): LearningTutorState {
         );
       }
 
+      // The chunks go through the store, not through this loop. `runStream` owns the async
+      // generator, so `state.stream.lastChunk` is readable by anything on the page while the
+      // answer is still arriving — including the tutor's own panels. The callback below is only
+      // about this message's text; it is the caller's concern, not the store's.
       let answer = "";
-      let usedProvider = provider;
-      let usedModel = model;
+      const streamed = await runStream("teach", assistantId, response, (event) => {
+        if (event.type !== "token") return;
+        answer += event.text;
+        const snapshot = answer;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: snapshot } : m,
+          ),
+        );
+      });
 
-      for await (const event of readEventStream(response)) {
-        if (event.type === "provider") {
-          usedProvider = event.provider;
-          usedModel = event.model;
-        } else if (event.type === "token") {
-          answer += event.text;
-          const snapshot = answer;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: snapshot } : m,
-            ),
-          );
-        } else if (event.type === "error") {
-          throw new Error(event.message);
-        }
-      }
+      const usedProvider = streamed.provider ?? provider;
+      const usedModel = streamed.model ?? model;
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -219,7 +221,7 @@ export function useLearningTutor(): LearningTutorState {
         return updated;
       });
     },
-    [goals, mode, model, provider, refreshStats, selectedTerm],
+    [goals, mode, model, provider, refreshStats, runStream, selectedTerm],
   );
 
   const recall = useCallback(

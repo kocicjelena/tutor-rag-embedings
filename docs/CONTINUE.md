@@ -267,6 +267,55 @@ line*, so the log explaining which process died never printed.
 workflow and make the GHCR package **public** (private is the default and
 Hugging Face pulls anonymously), then create the Space and set `HF_TOKEN` and
 `HF_SPACE`.
+jelena: hf space is https://huggingface.co/spaces/kjelenak/my_tutor, trusted publisher on hf space set to 
+https://github.com/kocicjelena/tutor-rag-embedings
+
+**Half of that is now done — 2026-07-31.** The Space exists
+(`kjelenak/my_tutor`) and it trusts this repository directly, so **`HF_TOKEN`
+never happens**: `deploy-space.yml` gets a one-hour, one-Space token from
+GitHub's OIDC identity instead, and stores nothing. `HF_SPACE` is set. Three
+things now hold that together and each fails the run silently if it drifts:
+`permissions: id-token: write`, the `spaces/` prefix on `HF_OIDC_RESOURCE`, and
+the Hub-side claims — which are matched **exactly**, so renaming
+`deploy-space.yml` stops the deploy.
+
+Still Jelena's, and now the only blockers: **push `main`** (`origin/main` is
+still one `init` commit — the Space would build nothing), **run the base-image
+workflow**, and **make the GHCR package public**. Written out step by step, with
+the failure table and both `CR_PAT` and CI routes for the Ollama image, in
+**`docs/MANUAL-GITHUB.md`** — new, and the answer to her notes 4–7 in `TODO.md`.
+
+## Latest: the browser store ✅ — chunks live in context now
+
+Full record, including the NextAuth plan that has **not** been built:
+**`docs/CONTEXT-AUTH.md`**. The conventions behind it, read out of Jelena's
+three other Next.js projects (read-only, nothing touched):
+**`.claude/skills/nextjs-context-auth/SKILL.md`**.
+
+Her template, her file names: `web/types/interfaces/`, `web/reducers/`,
+`web/context/GlobalContext.tsx`, split `{ state, actions }`, two contexts so a
+component that only dispatches does not re-render. One slice so far, `stream`.
+
+**What it is for.** A chunk is what this app processes, not a document — so
+`lastChunk` is in the store, raw, beside the running `text` and `chunkCount`.
+`STREAM_BEGIN` wipes the slice: current stream only, her decision. There is no
+transcript and no localStorage, because the corpus already lives server-side in
+`TutorLesson` and a second copy would drift.
+
+**The part worth carrying forward** is `runStream`. `readEventStream` is an
+async generator, so consuming it is a coroutine and whoever holds it owns the
+stream — in a component the pipe dies with the component. In the provider it
+does not, and because the action is `useCallback(…, [])` its identity never
+changes, so it is a safe dependency anywhere downstream. That is what Jelena
+meant by *"memoise can be kept in context and it won't hang or disappear"*.
+Two producers already run through it: `useLearningTutor.teach` and `ChatStream`.
+
+`reducers/WalletReducer.ts` — the file she copied in as a template — was
+deleted, not adapted: it imports `viem`, and this app has no wallet. The
+original in `~/multichain-main/my` is untouched.
+
+`tsc` clean and `npm run build` green, standalone output intact. **Never
+clicked.** Nobody has watched a stream finish in a browser since the change.
 
 ## Built and alive — but not yet run
 
@@ -379,6 +428,15 @@ had been sharing one constant, which is why they were coupled at all.
 - **No NVIDIA GPU on this machine** (Intel iGPU, 12 cores, 23 GB RAM) — which is why
   `llama3.1:8b` takes ~180 s for one sentence, and why any fine-tuning (tier 3) has to
   run on a free Colab/Kaggle T4, never here and never on the free Space.
+  jelena: live sqlite issues for later. Focus is on building context for the app and making first, dummy publishing
+
+  **Recorded, 2026-07-31:** `docs/TODO.md` → *SQLite — postponed on purpose, and
+  the first thing to trace back*. It lists what already exists (WAL,
+  `busy_timeout`, `/data`, vectors in the same file — do not rebuild those),
+  what still has to be written (backup + restore, the persistence decision, the
+  migration gap, ingestion progress), and the order: context → NextAuth →
+  database. Her reason is a good one: without a channel to the browser, database
+  fixes get invented in the wrong layer.
 
 ## How `/tutor` is wired — the answer to your question
 

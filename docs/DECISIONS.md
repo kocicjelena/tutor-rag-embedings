@@ -103,6 +103,8 @@ and must not.
 | **`note_use` / `last_used_at`** | One line, never called. Harmless, and currently a lie in the schema | ⏸ |
 | **Per-user document privacy** | Deliberate: authorisation is a later session. Do not build speculatively | ⏸ |
 | **Seed-on-startup** | Needed before the Space is worth visiting — an empty demo shows nothing | ⏸ |
+| **Every live-SQLite question on the Space** — persistence across rebuilds, `sqlite3 .backup`, a persistent volume, the one-writer rule under real traffic | **Jelena's call, 2026-07-31: "live sqlite issues for later."** The Space's disk is ephemeral by design and the first publish is a *dummy* one — nothing on it is meant to survive, so a storage answer would be solving a problem the first deploy does not have. Trigger: the moment anyone is asked to keep something on the Space, or the demo account stops being disposable | ⏸ |
+| **The tutor driving the embedding model as a tool** | Her note 2 in `TODO.md`, scheduled *last* in the session precisely so it can slip. Recorded here rather than done: it is a new MCP tool plus a decision about whether re-embedding is ever a *model's* choice, and both deserve a session that is not also a deployment | ⏸ |
 
 ## Not in this file: things that are built and simply untested
 

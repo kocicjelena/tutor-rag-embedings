@@ -3,6 +3,213 @@
 `mcp-py` is standalone by choice. Nothing here depends on the other three
 projects, and nothing here should grow to.
 
+jelena: 
+1. new  branch https://github.com/kocicjelena/tutor-rag-embedings  is not ready and pushed. We can do that in this session
+2. make tutor app work with the new embedding model, as tool - the last thing in the session or it will be left for next session and that recorder here
+3. make context for chunk (e.g. chunk is proceed not a document will be action made as callBack in GlobalContext.tsx tutor will be able to access that last chunk at least. second problem is virtual piping chanks, what can be solved using React Provider, already scaffold in many of my Next.js applications. Please have a look at !/home/jelena/ollama8jul If FastAPI get input from Next.js it will be state or action of Provider made in GlobalCOntext.tsx. very often. It is there to be helpful, do not force that. Eg async generator passed to corutine has to be async and can be recorded in context, so that what app has to memoise, and memoise can be keept in context and it wont hang or desapear. This approach demand thinking, please ask if you are in any dubt with providing questionare rather then prose. ). Even more important files for auth are deleted and you have made your way to authenticate. As we are making app as identity provider it has to be as you are instruct to do in chat. That was not written in docs/.. anywhere. I paste you the part of the code, provider is set like in project my/ but provider is not Ethereum, but identity I have to make in Cognito AWS console, instead of address we use email... Everything has to be done as I told you to do using [[..nextauth]] route. That is the best rule in Next.js and you will not chasing the circles of issues, bugs and problems. When context and nextauth is implemented you will see the development of this app meaningfull, as you do not trace unpossibilities, but you are writing what else has to be added (as logical process). Please ask any question and say if you can understand after thinking. Please confornt with me, ask me in questionare, disagree and agree on particular.
+4. hf public space built on web console, available githubaction on repo https://github.com/kocicjelena/tutor-rag-embedings
+5. docker not published, There is no Docker on this
+machine, and it is said it is built
+6. how can I publish idependant docker for nomic? 
+env has now
+CR_PAT=
+
+What I have to do is this:
+/////
+$ echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
+> Login Succeeded
+Pushing container images
+This example pushes the latest version of IMAGE_NAME.
+
+docker push ghcr.io/NAMESPACE/IMAGE_NAME:latest
+Replace NAMESPACE with the name of the personal account or organization to which you want the image to be scoped.
+///
+Please point me to the file explaining github/workflow/ and/or make manual_github.md for using the scripts made
+Please tell me what I have to do next
+7.  docker image not
+  made as I have to have your instructions
+
+## My answers to those seven — 2026-07-31
+
+**1. Pushing.** `origin/main` is a single `init` commit; everything real is
+local, on `milestone-3-mcp-agent-deploy` (5 commits ahead of local `main`).
+Prepared, not done — pushing is outward-facing and the last step is yours. The
+order matters: **the base image first**, because a push to `main` fires
+`deploy-space.yml`, and a Space that builds before
+`ghcr.io/kocicjelena/mcp-py-ollama` is public fails on the `FROM` line.
+
+**2. The tutor driving the embedding model as a tool.** Not built, and I did not
+start it — you scheduled it last precisely so it could slip. Recorded in
+`DECISIONS.md` under *Postponed, with a trigger*, so it does not evaporate. It
+is two things, not one: a fifth MCP tool, and a decision about whether
+re-embedding may ever be a *model's* choice rather than an operator's. My view
+is that reading (`indexed_with`, `searchable`, which documents are unreachable)
+is a fine tool; re-embedding is not, for the same reason
+`POST /documents/{id}/reembed` was refused — it is an all-users operator action.
+Worth a session that is not also a deployment.
+
+**3. Context + `[...nextauth]`.** The context half is **built**; NextAuth is
+planned in full and not started. Everything about both is in
+**`docs/CONTEXT-AUTH.md`**, and the conventions themselves — read out of
+`~/multichain-main/my`, `~/ollama8jul` and `~/my-sei-dapp`, all read-only,
+nothing touched — are written once as a skill:
+**`.claude/skills/nextjs-context-auth/SKILL.md`**.
+
+Built, on the template you copied in:
+
+- `web/types/interfaces/{actionTypes,StreamType,ContextType}.ts`,
+  `web/reducers/StreamReducer.ts`, `web/context/GlobalContext.tsx`, and the
+  provider mounted once in `web/app/layout.tsx`
+- the slice holds `lastChunk` — the frame exactly as it arrived — plus the
+  running `text`, `chunkCount`, `status`, `kind`, `provider`/`model`
+- **`runStream`**, the async action: it owns the async generator inside the
+  provider, so the pipe does not die with a component, and it is
+  `useCallback(…, [])` so its identity is stable — the memoisation you meant
+- two real producers use it: `hooks/useLearningTutor.ts` (teach) and
+  `components/ChatStream.tsx` (query/agent)
+- `tsc` clean, `npm run build` green. **Not clicked in a browser yet.**
+
+`reducers/WalletReducer.ts` was deleted rather than adapted — it imports `viem`
+and there is no wallet here. Its shape is what survived, in `StreamReducer.ts`.
+
+Left to do on this, in order:
+
+- [ ] **Run it in a browser** — ask one question on `/`, one on `/tutor`, and
+      watch a stream finish. Nothing here has been clicked
+- [ ] **A visible consumer of `lastChunk`.** Nothing renders it yet, so the
+      slice is proven by its producers and not by the UI. The obvious one is a
+      small "receiving…" line on `/tutor` reading `state.stream`
+- [ ] **NextAuth**, steps 2–5 of `CONTEXT-AUTH.md` → *Order of work*: install
+      `next-auth@beta`, `web/lib/auth.ts`, the `[...nextauth]` route, move
+      `lib/api.ts::getToken()` onto `auth()`, `AUTH_SECRET` into the Space
+      secrets **before** that branch is pushed
+- [ ] **Cognito as a second provider** — the only part waiting on the AWS
+      console (`docs/AUTH.md`)
+- [ ] Optional, when a fourth slice appears: swap the manual `rootReducer` for
+      `react-combine-reducers`, as in `~/ollama8jul/globalx/`. Not before —
+      a dependency in `npm ci` costs more than six lines do
+
+**4. The Space.** Done on your side, and the workflow now matches it:
+`HF_SPACE: kjelenak/my_tutor`, no `HF_TOKEN` anywhere, trusted publisher via
+GitHub OIDC. See `docs/MANUAL-GITHUB.md`.
+
+**5 + 7. "Docker is not made, and it says it is built."** Both are true and the
+sentence to keep is: the Docker *files* are written, reviewed and typed; no
+image has ever been built, here or anywhere. You need no Docker on this machine
+— GitHub's runners build it. Instructions: `docs/MANUAL-GITHUB.md`.
+
+**6. An independent Docker image for nomic.** It already has its own workflow —
+`ollama-base.yml` — and that is exactly what it publishes: Ollama plus
+`nomic-embed-text`, no app code, its own tag, its own schedule. Your `CR_PAT`
+commands are correct but are the *laptop* route; CI needs no `CR_PAT` at all,
+because the runner's own `GITHUB_TOKEN` can write to GHCR. Both routes are
+written out in the manual, with the one step everyone forgets — **make the GHCR
+package public** — called out on its own.
+
+## SQLite — postponed on purpose, and the first thing to trace back
+
+**Jelena's decision, 2026-07-31:** the live SQLite questions wait until the
+context layer is integrated, because *"SQLite will be simpler and less buggy,
+with fewer issues, once the context is in."* That reasoning is right and worth
+keeping: half of what looks like a database problem here is really a **plumbing**
+problem — nothing in the browser can hear about a row changing, so the fixes get
+invented in the wrong layer. `runStream` and the store are that missing channel.
+
+This section is the trace-back point. Read it before touching the database.
+
+### Already done — do not rebuild it
+
+`app/core/db.py` and the container already handle the parts people usually add
+twice:
+
+- `PRAGMA journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`, set on
+  **every** connection through the `connect` event — not once at startup
+- `SQLITE_PATH` is configuration (`app/core/config.py`), `/data/rag.db` in the
+  image, with `VOLUME ["/data"]` and the directory owned by `appuser`
+- the `vec0` tables live in the same file, so vectors travel with the data and
+  no second store has to be kept in step
+- one writer, one replica — a hard constraint, already in `DECISIONS.md`
+
+### What has to be written additionally
+
+- [ ] **A backup script.** `sqlite3 .backup` (or `VACUUM INTO`) while the app is
+      running — never `cp`, which copies a file mid-write and a WAL that does
+      not match it. `app/scripts/backup.py` beside `reembed.py`, plus a
+      `wal_checkpoint(TRUNCATE)` first. Nothing exists today
+- [ ] **A restore path, written down and tried once.** A backup nobody has
+      restored is a belief, not a backup
+- [ ] **The persistence decision for the Space.** The free tier's disk is
+      ephemeral: `/data` is a volume in the image, but the Space rebuilds and it
+      is gone. Three options — accept it and say so in the UI (today's plan),
+      buy HF persistent storage, or snapshot the file to a private HF Dataset
+      on a timer. **Not urgent for a dummy publish**, and that is exactly why it
+      is written down rather than decided in a hurry
+- [ ] **Seed-on-startup when the corpus is empty.** Already listed under Deploy;
+      it belongs here too, because it is the *reason* ephemerality is survivable
+- [ ] **The migration gap, in writing, at the place it bites.** `create_all`
+      adds missing **tables** and never missing **columns**. So: a new column on
+      an existing table needs a hand-written `ALTER TABLE` in the lifespan, or a
+      new table instead — which is why `TutorLesson` is its own table. This will
+      bite the moment identity grows a column (a Cognito `sub`, a `last_seen`),
+      which is the next thing on the roadmap
+- [ ] **Ingestion progress.** The streaming sink already yields a running count
+      and nothing reads it, because upload is a background task with no channel
+      to the browser. **This is the one that needed the context layer**: a
+      `progress` slice fed by an SSE route turns the count into something a user
+      sees. Do it after NextAuth, not before — it is the same plumbing
+- [ ] **A disk/persistence line on `/status`.** The page probes everything else;
+      "where the database is and whether it survives a restart" is exactly the
+      kind of honest fact it exists to show
+
+## Local Docker + `docker-compose` — a later session, after the four above
+
+**Jelena's ask, 2026-07-31**, placed deliberately behind: SQLite, bug fixes,
+improvements, then auth. Not before.
+
+One correction to the wording of the ask, because it will matter when you look
+for the image: the workflows push to **GHCR** (`ghcr.io`), GitHub's own
+registry, **not Docker Hub**. That was a decision with a reason — Docker Hub
+rate-limits anonymous pulls per IP and Hugging Face builds on shared runners, so
+a Space rebuild would fail with `toomanyrequests` at an unpredictable moment.
+GHCR has no such limit for public images. Recorded in `DECISIONS.md`.
+
+What "all Docker locally" means here, once it is worth doing:
+
+- [ ] **`compose.yaml`** with two services — the app image and the Ollama base
+      image — instead of the single container that the Space needs. The Space
+      gets one container because Spaces exposes one port; a laptop has no such
+      constraint, and splitting them means a code change does not rebuild a
+      1.4 GB Ollama layer
+- [ ] **A named volume for `/data`**, so the SQLite file survives
+      `docker compose down`. This is where it meets the SQLite section above:
+      locally, persistence is free and the ephemeral-disk problem does not exist
+- [ ] **A `compose.override.yaml` for development** — bind-mount the source and
+      run `fastapi dev` + `next dev`, so the container is not rebuilt on every
+      edit
+- [ ] **`ollama pull llama3.1:8b` into the local Ollama volume**, which the Space
+      deliberately does not have: locally you can generate without Claude and
+      without spending anything
+- [ ] **One page in `MANUAL-GITHUB.md` or its own doc** — `docker compose up`,
+      where the data lives, how to back it up, how to reach the API directly
+- [ ] Only then: whether the laptop in `docs/ops/LAPTOP8.md` runs the same
+      compose file. It should; that is the point of one image
+
+Trigger to start it: a first successful Space build, so there is a known-good
+image to compare against. Debugging Docker locally and remotely at the same time
+is two unknowns.
+
+### How it integrates — the order that makes it simple
+
+1. Context store ✅ *(done — `docs/CONTEXT-AUTH.md`)*
+2. NextAuth in front of the existing FastAPI login — identity settles, and any
+   new user column is known *before* the migration gap is tested
+3. Then the database work above, in one pass: backup + restore, the persistence
+   decision, the progress channel
+
+Doing it in the other order means writing a migration for a column that gets
+renamed a week later, and inventing a progress mechanism that the store makes
+unnecessary.
+
 ---
 
 ## Needs your decision

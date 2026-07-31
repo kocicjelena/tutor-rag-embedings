@@ -9,8 +9,8 @@
  */
 
 import { useRef, useState } from "react";
+import { useContextActions } from "@/context/GlobalContext";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
-import { readEventStream } from "@/lib/stream";
 import type { SourceChunk, ToolRun } from "@/lib/types";
 
 interface Props {
@@ -26,6 +26,8 @@ export default function ChatStream({
   onSources,
   onToolRuns,
 }: Props) {
+  const { runStream } = useContextActions();
+
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   // Off by default: the agent is slower and costs more tokens, and most
@@ -78,7 +80,11 @@ export default function ChatStream({
         return;
       }
 
-      for await (const event of readEventStream(response)) {
+      // The chunks are drained by the store's `runStream`, so the answer arriving here is also
+      // readable from `state.stream` anywhere on the page. What stays local is what the store
+      // deliberately does not model: the source list and the tool trace, which are this page's
+      // own panels rather than part of the stream.
+      await runStream(useTools ? "agent" : "query", `q${Date.now()}`, response, (event) => {
         switch (event.type) {
           case "provider":
             setAnsweredBy(`${event.provider} · ${event.model}`);
@@ -104,15 +110,17 @@ export default function ChatStream({
             break;
           }
           case "error":
+            // Set here as well as thrown by runStream: this is the server's own message, and it
+            // is better than the generic fallback in the catch below.
             setError(event.message);
             break;
           case "done":
             break;
         }
-      }
+      });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
-        setError("Stream failed — is the API running?");
+        setError((prev) => prev ?? "Stream failed — is the API running?");
       }
     } finally {
       setStreaming(false);

@@ -3,7 +3,7 @@
 A demonstration app: document RAG over local SQLite, with the **generating model chosen by the
 user at request time** (Ollama or Claude), an MCP server + client exposed as internal APIs, and a
 Next.js frontend that visualises agent/tool execution.
-
+jelna: * Do not rewrite anything, if not said so i chat or as jelena:
 > **Do not read anything in `docs/jelena/`.** Her own reminders — hers to keep, not session
 > input. That now includes `ORIGINAL_BRIEF.md`, `OIDC.md` and `CLAUDE_PROMPT.md`. Everything
 > that governs this codebase has been lifted out of them and into this file, `docs/PLAN.md`
@@ -154,6 +154,8 @@ app/
   mcp/        context (the tenant boundary), tools, server, client — see docs/MCP.md
   api/routes/ login, users, documents, query, providers, mcp
 web/          Next.js 16 frontend
+  context/GlobalContext.tsx   the store: split { state, actions }, mounted in app/layout.tsx
+  reducers/ types/interfaces/ one slice per concern — `stream` holds the chunk being received
 docs/         see docs/TODO.md for what's next
 ```
 
@@ -184,6 +186,8 @@ cd web && npm run dev            # UI on :3000
 `docs/TODO.md` what's next + your duties · `docs/MANUAL.md` user + developer guide ·
 `docs/CONTINUE.md` session handoff · `other_agent.md` full defect inventory ·
 `docs/DEPLOY-HF.md` the Space: the plan, and a candid assessment of it ·
+`docs/MANUAL-GITHUB.md` the two workflows, what Jelena clicks, and what to read when a deploy fails ·
+`docs/CONTEXT-AUTH.md` the browser store (built) and the NextAuth plan (not built) ·
 `docs/VECTORS.md` the vector layer: streaming ingestion, per-dimension indexes ·
 `docs/AUTH.md` identity, and who pays for Claude
 

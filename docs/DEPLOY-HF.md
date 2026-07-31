@@ -192,21 +192,32 @@ The workflow also **refuses to run** if `.env`, `rag.db` or `related/` somehow
 appear in a checkout, or if any file exceeds 10 MB (Hugging Face needs Git LFS
 above that, and a rejected half-push is worse than a failed check).
 
-## Setting it up
+## Setting it up — done, 2026-07-31
 
-1. **Create the Space** once, by hand: <https://huggingface.co/new-space> →
-   SDK **Docker**, visibility **public**.
-2. **Write token**: <https://huggingface.co/settings/tokens> → new token, role
-   *write*.
-3. **GitHub** → Settings → Secrets and variables → Actions → new repository
-   secret named **`HF_TOKEN`**.
-4. Edit `HF_SPACE` at the top of `.github/workflows/deploy-space.yml` to
-   `<your-hf-username>/mcp-py`.
-5. Push to `main`, or run the workflow by hand from the Actions tab.
+The Space exists: **<https://huggingface.co/spaces/kjelenak/my_tutor>**, and
+`HF_SPACE` in the workflow now names it.
 
-The token appears in a URL inside the push step. GitHub masks registered secrets
-in logs, and the workflow never runs with `set -x`, so it does not leak — but it
-is worth knowing it is there rather than being surprised by it later.
+**There is no `HF_TOKEN`, and there should not be.** Jelena configured the Space
+with this repository as a **trusted publisher**, which is the same mechanism as
+PyPI's: the job proves its identity with GitHub's OIDC token and receives a Hub
+token that lasts one hour and can write to that one Space. Nothing is stored in
+GitHub secrets, nothing is rotated, and a leaked log is worthless an hour later.
+
+What the workflow needs for that to keep working — all three are in its header
+too, because each one fails the run silently if it drifts:
+
+- `permissions: id-token: write` on the job;
+- `HF_OIDC_RESOURCE: spaces/kjelenak/my_tutor` — **the `spaces/` prefix is
+  load-bearing**; without it the Hub looks for a model repo of that name;
+- the claims on the Hub side matched **exactly**: repository
+  `kocicjelena/tutor-rag-embedings`, and — if they were filled in — branch
+  `main` and workflow `deploy-space.yml`. Renaming the file breaks the deploy.
+
+The push itself is `hf upload … --repo-type=space --delete="*"`, a mirror rather
+than an accretion, so a file removed here leaves the public Space as well.
+
+The step-by-step, including the GHCR side and what to do when it fails:
+**`docs/MANUAL-GITHUB.md`**.
 
 ## The Space image — still to build
 
@@ -322,7 +333,10 @@ daemon and could land in a layer.
    — **done, never built**
 4. Run the **Ollama base image** workflow, and make the GHCR package **public**
    — Hugging Face pulls it anonymously
-5. Create the Space, set `HF_TOKEN` and `HF_SPACE`, push — **the ugly Space**
+5. ~~Create the Space~~ — **done 2026-07-31**, `kjelenak/my_tutor`, with this
+   repo as its trusted publisher. What remains of this step is: push `main`
+   (`origin/main` is still a single `init` commit), then watch the *Space* build
+   log, which is a different log from the GitHub one — **the ugly Space**
 6. `/health` reports embedding readiness, not just sqlite-vec
 7. Rate limiting
 8. Seed-on-startup when the corpus is empty
