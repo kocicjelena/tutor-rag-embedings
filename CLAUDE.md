@@ -179,6 +179,13 @@ uv run fastapi dev app/main.py   # API on :8000
 cd web && npm run dev            # UI on :3000
 ```
 
+## Resuming a session
+
+Jelena says *"read the file"*. It means **`.claude/rules/CONTINUE.md`** — the
+compact handoff, and the only resume point. Write every note for the next
+session there. `docs/SESSIONS.md` is the prose summary for her, a different
+document with a different audience.
+
 ## Docs map
 
 **They live in `.claude/rules/`, and only `SUMMARY.md` is tracked** — Jelena's
