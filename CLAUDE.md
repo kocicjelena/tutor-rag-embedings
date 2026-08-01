@@ -181,10 +181,20 @@ cd web && npm run dev            # UI on :3000
 
 ## Resuming a session
 
-Jelena says *"read the file"*. It means **`.claude/rules/CONTINUE.md`** — the
-compact handoff, and the only resume point. Write every note for the next
-session there. `docs/SESSIONS.md` is the prose summary for her, a different
-document with a different audience.
+Jelena says *"read the file"*. Since 2026-08-01 it means
+**`.claude/rules/CONTINUE_COMPACT.md`** — her decision, and the only resume
+point. Read it and start; do not `/resume`, and do not open `CONTINUE.md`
+unless the compact file sends you there.
+
+Two files, two jobs, and keeping them apart is what keeps the short one short:
+
+| | |
+|---|---|
+| `CONTINUE_COMPACT.md` | Where things stand *now*, what is next, what is waiting on her. **Update it every session** and keep it under two screens — cut the oldest half rather than letting it grow |
+| `CONTINUE.md` | The long record: how each piece came to be, and the corrections worth not repeating. Append here; nothing is deleted |
+
+`docs/SESSIONS.md` is the prose summary for her, a different document with a
+different audience.
 
 ## Docs map
 
@@ -200,7 +210,8 @@ the set changes; it is the only one a clone will ever see.
 `.claude/rules/PLAN.md` architecture, **deployment**, and the model export format ·
 `.claude/rules/MCP.md` the tool layer: the four tools, the tenant boundary, the session rule ·
 `.claude/rules/TODO.md` what's next + your duties · `.claude/rules/MANUAL.md` user + developer guide ·
-`.claude/rules/CONTINUE.md` session handoff · `.claude/rules/other_agent.md` full defect inventory ·
+`.claude/rules/CONTINUE_COMPACT.md` **the resume point** · `.claude/rules/CONTINUE.md` the long record ·
+`.claude/rules/other_agent.md` full defect inventory ·
 `.claude/rules/DEPLOY-HF.md` the Space: the plan, and a candid assessment of it ·
 `.claude/rules/MANUAL-GITHUB.md` the two workflows, what Jelena clicks, and what to read when a deploy fails ·
 `.claude/rules/CONTEXT-AUTH.md` the browser store (built) and the NextAuth plan (not built) ·

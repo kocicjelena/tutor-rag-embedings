@@ -11,7 +11,7 @@ so the machine holding these files is the one that can continue the work.
 ## What moved out of `docs/` on 2026-07-31
 
 Fourteen documents, moved with their history and then untracked. `CONTINUE.md`
-is the session handoff, and the file a new session reads first. `TODO.md` is
+is the session handoff. `TODO.md` is
 what is next, including Jelena's own numbered notes. `DECISIONS.md` records what
 was deliberately *not* built, so the same arguments are not had twice.
 `PLAN.md` holds the architecture, the deployment reasoning and the model export
@@ -28,7 +28,11 @@ readable summary of where the project stands.
 
 Added since: `QUESTION-UNIT.md`, four options with for and against for the one
 decision the learning channel still needs from Jelena — what unit of learning
-travels up it.
+travels up it. And `CONTINUE_COMPACT.md`, which is now **the file a new session
+reads first**: where things stand today, what is next, and what is waiting on
+her, kept under two screens by rule. `CONTINUE.md` became the long record behind
+it — the two are split because one document cannot both stay short and keep
+everything.
 
 ## Done
 
