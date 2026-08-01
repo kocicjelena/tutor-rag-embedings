@@ -200,6 +200,76 @@ class ProviderInfo(SQLModel):
     detail: str | None = None
 
 
+# ──────────────────── Embedding, run directly ────────────────────
+#
+# `GET /providers/` answers "who can generate". These answer "what can embed,
+# and what does it produce" — a different question, and the one that makes the
+# embedding layer visible rather than implied. Reasoning, including the
+# measurement behind `note_affects_vectors`, in `app/services/embeddings.py`.
+
+
+class EmbeddingModelInfo(SQLModel):
+    name: str
+    size: int | None = None
+    family: str | None = None
+    # Short digest of the weights this name points at. Two models showing the
+    # same one *are* the same weights — which is how a derived name proves it
+    # is a pin rather than a different model. See `_weights_digest` for why this
+    # replaced a `derived` flag that could not be computed honestly.
+    weights: str | None = None
+
+
+class EmbeddingVector(SQLModel):
+    text: str
+    # The first few components by default, the whole vector when asked. A
+    # 768-float array is not something a person reads, and a response that is
+    # normally 15 KB of numbers teaches its caller to ignore responses.
+    preview: list[float]
+    truncated: bool
+    magnitude: float
+
+
+class EmbedResult(SQLModel):
+    model: str
+    count: int
+    dimensions: int
+    vectors: list[EmbeddingVector]
+
+
+class EmbedRequest(SQLModel):
+    """One list in, one round trip — `ollama.embed` is natively batched."""
+
+    texts: list[str]
+    # Defaults to the configured embedding model, so the common case is "show
+    # me what this app actually does to my text".
+    model: str | None = None
+    full: bool = False
+
+
+class DeriveModelRequest(SQLModel):
+    name: str
+    base: str | None = None
+    # Stored as a SYSTEM line and read by nothing, on an embedding model. Kept
+    # because it records what the pin is *for*; see the service module.
+    note: str | None = Field(default=None, max_length=500)
+
+
+class DerivedModelResult(SQLModel):
+    name: str
+    base: str
+    capabilities: list[str]
+    note: str | None
+    # Measured against a live Ollama on 2026-08-01: creating a model from an
+    # embedding base with a SYSTEM prompt produces byte-identical vectors, max
+    # absolute difference 0.0. Reported rather than left for the UI to imply.
+    note_affects_vectors: bool
+    vectors_identical_to_base: bool
+    summary: str
+    # Tier 2 of PLAN.md §7, arriving early: a few hundred bytes that rebuild the
+    # model anywhere, instead of a 274 MB blob in `web/public/`.
+    modelfile: str
+
+
 class ProvidersPublic(SQLModel):
     data: list[ProviderInfo]
     default_provider: str
