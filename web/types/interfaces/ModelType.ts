@@ -41,6 +41,33 @@ export interface LearningModelState {
   mean_novelty: number | null;
   last_seq: number | null;
   embedded_with: string;
+  /**
+   * How many vectors the model holds, across every session — not just this one.
+   *
+   * The vectors are the part that makes it a model rather than a transcript, which is why
+   * this is reported separately from `events`. Jelena's instruction, overruling an earlier
+   * decision to compute novelty and drop the vector: *"Without that it is not worth having
+   * embeddings."* They live in their own index (`vec_learning`); the search index is never
+   * written to by this pipeline.
+   */
+  vectors: number;
+}
+
+/** One piece of the learner's own material, near another. `POST /tutor/learn/similar`. */
+export interface LearningNeighbour {
+  seq: number;
+  text: string;
+  term: string | null;
+  session_id: string;
+  /** Straight out of the index. Smaller is nearer. */
+  distance: number;
+}
+
+export interface LearningNeighbours {
+  query: string;
+  matches: LearningNeighbour[];
+  /** How many vectors were available to compare against. 0 means the model is empty. */
+  searched: number;
 }
 
 export type ModelStatus = "idle" | "sending" | "synced" | "error";

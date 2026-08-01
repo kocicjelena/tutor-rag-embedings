@@ -80,7 +80,8 @@ export type LearningTutorState = {
 export function useLearningTutor(): LearningTutorState {
   // The chunk pipe. `runStream` is memoised in the provider, so it is a stable dependency for
   // every useCallback below — it never re-creates `teach`.
-  const { runStream, setProvider, setModel } = useContextActions();
+  const { runStream, setProvider, setModel, learn, startLearning } =
+    useContextActions();
   // Who answers is one fact about the app, not a fact about this hook. It used to be two
   // copies — this one and the home page's — which is why choosing Claude on `/` did not
   // survive walking to `/tutor`, and why the sidebar could set one while the request sent
@@ -120,7 +121,12 @@ export function useLearningTutor(): LearningTutorState {
   useEffect(() => {
     setLearningModel(loadLearningModel());
     void refreshStats();
-  }, [refreshStats]);
+    // One learning session per visit to the tutor, not one per question. A
+    // "session" here groups a continuous stretch of learning — which is what a
+    // sitting with the tutor is — so the pieces of several questions belong to
+    // one stretch and `learn/similar` can be narrowed to "today" meaningfully.
+    startLearning();
+  }, [refreshStats, startLearning]);
 
   /** Unlock from the server's count when we have it — that's the real corpus. */
   const indexedLessons = stats?.interactions ?? learningModel.interactions;
@@ -169,16 +175,43 @@ export function useLearningTutor(): LearningTutorState {
       // answer is still arriving — including the tutor's own panels. The callback below is only
       // about this message's text; it is the caller's concern, not the store's.
       let answer = "";
+      // The loop, closed. Each fragment is pushed up as it arrives, so the model is built
+      // *while* the learning happens rather than posted back afterwards — which was the gap:
+      // the browser was acting as a buffer and the round trip sat in the middle of the one
+      // process that matters.
+      //
+      // Nothing waits for a boundary, and nothing here batches on meaning. `learn()` assigns
+      // the sequence number synchronously and then queues, so while one request is on the wire
+      // the fragments behind it accumulate and travel together. That batching is a transport
+      // economy driven by the network, not a wait for a sentence to finish — which is the
+      // distinction that makes the coroutine on the server side earn its place.
+      //
+      // Not awaited per fragment, deliberately: awaiting here would make the answer render at
+      // the speed of the embedder. Ordering survives anyway, because the seq is taken before
+      // the await.
+      let pushed: Promise<void> = Promise.resolve();
+      const term = findTermById(selectedTerm).label;
+
       const streamed = await runStream("teach", assistantId, response, (event) => {
         if (event.type !== "token") return;
         answer += event.text;
         const snapshot = answer;
+        pushed = learn(event.text, term);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId ? { ...m, content: snapshot } : m,
           ),
         );
       });
+
+      // The tail. `learn()` resolves when the queue is empty, so awaiting the last one waits
+      // for every fragment to have landed — and a failure here must not lose the answer the
+      // learner is already reading, which is why it is caught rather than thrown.
+      try {
+        await pushed;
+      } catch {
+        /* the store already holds the error, and the queue keeps the pieces for a retry */
+      }
 
       const usedProvider = streamed.provider ?? provider;
       const usedModel = streamed.model ?? model;
@@ -224,7 +257,7 @@ export function useLearningTutor(): LearningTutorState {
         return updated;
       });
     },
-    [goals, mode, model, provider, refreshStats, runStream, selectedTerm],
+    [goals, learn, mode, model, provider, refreshStats, runStream, selectedTerm],
   );
 
   const recall = useCallback(

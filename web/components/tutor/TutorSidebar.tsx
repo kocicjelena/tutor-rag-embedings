@@ -1,7 +1,9 @@
 "use client";
 
 import ProviderPicker from "@/components/ProviderPicker";
+import { useContextState } from "@/context/GlobalContext";
 import { LatestInteractionCard } from "./LatestInteractionCard";
+import { LiveModelCard } from "./LiveModelCard";
 import { LearningGoalsCard } from "./LearningGoalsCard";
 import { ModelStatusCard } from "./ModelStatusCard";
 import { TopicMasteryCard } from "./TopicMasteryCard";
@@ -56,6 +58,8 @@ export function TutorSidebar({
   onModelChange,
   loading,
 }: Props) {
+  const liveModel = useContextState().model;
+
   return (
     <aside>
       {/* Reused from the documents page. In the tutor it carries extra meaning:
@@ -68,6 +72,11 @@ export function TutorSidebar({
         onModelChange={onModelChange}
         disabled={loading}
       />
+
+      {/* Reads the store directly rather than taking a prop. The model slice is global —
+          the channel keeps running whatever is on screen — so threading it through here
+          would be the same patch shape the other four removed wires were. */}
+      <LiveModelCard model={liveModel} />
 
       <ModelStatusCard
         stats={stats}
