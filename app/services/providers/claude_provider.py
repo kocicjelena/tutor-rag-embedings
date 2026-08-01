@@ -191,6 +191,19 @@ class ClaudeChatProvider:
 
     # ──────────────────────── tool calling ────────────────────────
 
+    async def supports_tools(self, model: str) -> bool:
+        """Every Claude model this app offers can call tools.
+
+        Stated rather than probed, and deliberately: Anthropic exposes no
+        per-model capability endpoint, so the alternative to a constant is a
+        *paid* request that tells us what the model card already says. The
+        selectable set is `KNOWN_MODELS` — Opus 5, Sonnet 5, Haiku 4.5 — and all
+        three do tool use. If that ever stops being true this becomes a lookup
+        in that list, not a network call.
+        """
+        del model  # every selectable model qualifies; see above
+        return True
+
     async def stream_turn(
         self,
         *,

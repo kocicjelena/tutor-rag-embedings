@@ -191,6 +191,44 @@ async def _probe_agent(session: AsyncSession, owner: uuid.UUID) -> ProbeResult:
     return ProbeResult(ok=True, evidence=f"{provider.name} implements stream_turn")
 
 
+async def _probe_ollama_tools(session: AsyncSession, owner: uuid.UUID) -> ProbeResult:
+    """Which locally installed models can actually call tools.
+
+    Asks Ollama rather than asserting: this is exactly the kind of claim the
+    page exists to stop the app making about itself. An empty answer is a real
+    result — Ollama is running and nothing pulled does tool use — and reads
+    differently from an unreachable server, so the two are reported apart.
+    """
+    del session, owner  # a fact about the machine, not about the caller
+    from app.services.providers.base import ProviderUnavailableError
+    from app.services.providers.ollama_provider import OllamaChatProvider
+
+    provider = OllamaChatProvider()
+    try:
+        models = await provider.list_models()
+    except ProviderUnavailableError as exc:
+        return ProbeResult(ok=False, evidence=exc.detail)
+
+    capable = [m.name for m in models if await provider.supports_tools(m.name)]
+    if not capable:
+        return ProbeResult(
+            ok=False,
+            evidence=(
+                f"{len(models)} chat model(s) installed, none reporting the "
+                "'tools' capability — try: ollama pull llama3.1"
+            ),
+        )
+    shown = ", ".join(capable[:5])
+    more = len(capable) - min(len(capable), 5)
+    return ProbeResult(
+        ok=True,
+        evidence=(
+            f"{len(capable)} of {len(models)} local model(s) can call tools: "
+            f"{shown}" + (f", and {more} more" if more else "")
+        ),
+    )
+
+
 async def _probe_tutor(session: AsyncSession, owner: uuid.UUID) -> ProbeResult:
     """Does this learner's model hold anything? Owner-scoped, like everything."""
     from app.services import tutor_model
@@ -338,14 +376,18 @@ CAPABILITIES: list[Capability] = [
         key="ollama-tools",
         name="Tool calling on Ollama",
         area="llm",
-        summary="llama3.1 supports it; the provider method is not written",
+        summary="The agent runs on a local model — free, and offline",
         detail=(
-            "One more stream_turn implementation and no change to the loop — "
-            "which is what the provider-neutral types in providers/base.py "
-            "were for. Postponed, not blocked."
+            "One more stream_turn implementation and no change to the agent "
+            "loop, which is what the provider-neutral types in "
+            "providers/base.py were for. Whether tools work is a question "
+            "about the model, not the provider, so it is asked per model: "
+            "Ollama reports a 'tools' capability and this app believes that "
+            "rather than its own guess."
         ),
-        declared="building",
+        declared="built",
         doc=".claude/rules/MCP.md",
+        probe=_probe_ollama_tools,
     ),
 
     # ── MCP ──────────────────────────────────────────────────

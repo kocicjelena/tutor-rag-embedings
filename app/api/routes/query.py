@@ -203,14 +203,30 @@ async def query_agent(
     model = resolve_model(provider, query_in.model)
 
     # Checked before the stream opens so it is a clean 4xx, not an error frame
-    # inside a 200. Ollama's tool support depends on the model rather than the
-    # provider, so it is deliberately not claimed yet.
+    # inside a 200.
+    #
+    # Two questions, not one. `isinstance` asks whether the provider implements
+    # the protocol; `supports_tools` asks whether *this model* can actually call
+    # a tool. Since Ollama gained `stream_turn` the first is true for every
+    # Ollama model, and the second is the one that separates `llama3.1:8b` from
+    # `gemma3:1b`. Skipping it would hand tools to a model that ignores them and
+    # answers from its own knowledge — an empty trace panel and a confident
+    # wrong answer, which is worse than a refusal.
     if not isinstance(provider, ToolCallingProvider):
         raise HTTPException(
             status_code=422,
             detail=(
-                f"{provider.name} cannot call tools yet. Use provider=claude, "
-                "or POST /query/stream for retrieval without tools."
+                f"{provider.name} cannot call tools. "
+                "Use POST /query/stream for retrieval without tools."
+            ),
+        )
+    if not await provider.supports_tools(model):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{model!r} cannot call tools. Pick a model that can — on "
+                "Ollama that means one whose capabilities include 'tools', "
+                "such as llama3.1 — or use POST /query/stream instead."
             ),
         )
 

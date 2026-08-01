@@ -53,6 +53,9 @@ class ScriptedProvider:
         self.seen_tools: list[str] = []
         self.seen_system: str | None = None
 
+    async def supports_tools(self, model: str) -> bool:
+        return True
+
     async def stream_turn(
         self,
         *,
@@ -77,6 +80,9 @@ class UnavailableProvider:
     name = "claude"
     default_model = "scripted"
 
+    async def supports_tools(self, model: str) -> bool:
+        return True
+
     async def stream_turn(
         self,
         *,
@@ -94,6 +100,9 @@ class SilentProvider:
 
     name = "claude"
     default_model = "scripted"
+
+    async def supports_tools(self, model: str) -> bool:
+        return True
 
     async def stream_turn(
         self,
@@ -217,6 +226,10 @@ async def test_the_catalogue_comes_from_mcp(session: AsyncSession) -> None:
         "list_documents",
         "get_document",
         "tutor_stats",
+        # `recall_lessons` was added to `app/mcp/server.py` on 2026-08-01 and
+        # appeared here without a line changing in `agent.py`. This assertion
+        # failing on a *new* tool is the test working, not breaking.
+        "recall_lessons",
     }
 
 
@@ -390,11 +403,36 @@ def test_the_scripted_providers_satisfy_the_protocol() -> None:
     assert isinstance(UnavailableProvider(), ToolCallingProvider)
 
 
-def test_ollama_is_not_claimed_as_tool_calling() -> None:
-    """Tool support depends on the model, so it is deliberately not asserted."""
+def test_ollama_now_implements_the_protocol() -> None:
+    """Ollama gained `stream_turn` in 2026-08 — and the agent loop did not change.
+
+    That is the property being pinned, not the isinstance: a second tool-calling
+    provider arrived by writing one file, because the types in `providers/base.py`
+    are provider-neutral.
+    """
     from app.services.providers.ollama_provider import OllamaChatProvider
 
-    assert not isinstance(OllamaChatProvider(), ToolCallingProvider)
+    assert isinstance(OllamaChatProvider(), ToolCallingProvider)
+
+
+def test_tool_support_is_asked_per_model_not_per_provider() -> None:
+    """The structural check is no longer the whole answer, and must not be treated as one.
+
+    Since Ollama implements the protocol, `isinstance` is true for *every*
+    Ollama model — including ones that cannot call a tool. `supports_tools` is
+    what separates them, and a route that skipped it would hand tools to a model
+    that ignores them and answers from its own knowledge instead: an empty trace
+    panel and a confident wrong answer.
+    """
+    import inspect
+
+    from app.api.routes import query as query_routes
+
+    source = inspect.getsource(query_routes.query_agent)
+    assert "supports_tools" in source, (
+        "POST /query/agent must ask whether the *model* can call tools, "
+        "not only whether the provider implements the protocol"
+    )
 
 
 # ──────────────────────── The corpus primer ────────────────────────

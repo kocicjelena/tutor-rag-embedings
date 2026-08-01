@@ -80,10 +80,14 @@ class ChatProvider(Protocol):
 #
 # A second, **optional** Protocol rather than three more methods on
 # `ChatProvider`. Tool use is not universal — it depends on the model, not just
-# the provider, and Ollama's support varies by model — so requiring every
-# provider to implement it would either break Ollama or fill it with stubs that
-# raise. `isinstance(provider, ToolCallingProvider)` is then a real question
-# with a real answer, and the agent can fall back to plain RAG when it is no.
+# the provider — so requiring every provider to implement it would fill the
+# ones that cannot with stubs that raise.
+#
+# Both Ollama and Claude implement it now, which does *not* make the protocol
+# redundant: it is what a third provider is measured against, and it is why
+# adding Ollama tool calling in 2026-08 changed one file and touched neither the
+# agent loop nor the route's shape. The per-model question moved into
+# `supports_tools` at the same time — see its docstring.
 #
 # The types below are deliberately provider-neutral. Anthropic's content-block
 # format and Ollama's differ, and translating is each provider's own job — the
@@ -158,6 +162,23 @@ class ToolCallingProvider(Protocol):
 
     name: str
     default_model: str
+
+    async def supports_tools(self, model: str) -> bool:
+        """Can *this model* call tools?
+
+        Separate from implementing the protocol, and that separation is the
+        whole reason this method exists. `isinstance(provider, ...)` is a
+        structural check: it answers "has this provider written the code", which
+        for Ollama is now yes for every model it serves — including
+        `gemma3:1b`, which cannot call a tool and would fail obscurely halfway
+        through a turn.
+
+        So the protocol answers *can this provider*, and this answers *can this
+        model*. A route must ask both, and `POST /query/agent` does, because a
+        clean 422 naming a model that works is worth more than a stream that
+        starts and then says nothing.
+        """
+        ...
 
     def stream_turn(
         self,
