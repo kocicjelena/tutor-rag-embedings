@@ -24,9 +24,19 @@ lessons an AI tutor taught them, which were saved and indexed.
 Everything is already scoped to the signed-in learner. There is no way to
 address another user's material and no parameter that would let you try.
 
-Start with search_documents. It is the cheap, general answer to "what does this
-learner know about X" — it searches meaning, not words, so it finds a lesson on
-embeddings when asked about vector representations.\
+Two tools search, and the choice between them is the choice of *what you are
+asking about*:
+
+  search_documents  everything the learner owns — lessons and uploaded files
+                    alike. The cheap, general answer to "what material is there
+                    about X".
+  recall_lessons    only what the tutor taught them. Use it when the question
+                    is about the person rather than the material: what do they
+                    know, what have they covered. It is the only one that can
+                    tell you a topic was never taught.
+
+Both search meaning rather than words, so either finds a lesson on embeddings
+when asked about vector representations.\
 """
 
 
@@ -75,6 +85,26 @@ def build_server() -> FastMCP:
             "This is the expensive tool — a document can be long, and the "
             "reply is truncated when it is. Use search_documents unless you "
             "specifically need the whole thing."
+        ),
+    )
+
+    server.add_tool(
+        tools.recall_lessons,
+        title="Ask the learner's own model",
+        description=(
+            "What this learner has been *taught* about something — their own "
+            "lessons only, never their uploaded files. Use it when the "
+            "question is about the person rather than about a document: what "
+            "do they know, what have they covered, what would they say.\n\n"
+            "The difference from search_documents matters. This tool can tell "
+            "you the learner has never been taught a topic, and that answer is "
+            "reliable, because it searched everything they were taught and "
+            "nothing else. A weak result from search_documents cannot support "
+            "the same claim — the material might simply have been in a file "
+            "they uploaded rather than a lesson.\n\n"
+            "Returns passages with a similarity score (1.0 is identical) and "
+            "the topic each lesson was filed under. It does not write an "
+            "answer; that is your job, from these passages."
         ),
     )
 

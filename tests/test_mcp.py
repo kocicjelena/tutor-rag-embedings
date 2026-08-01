@@ -29,7 +29,16 @@ from tests.conftest import auth_headers, make_user
 ALICE_SECRET = "ALICE-PRIVATE-LESSON-ON-BANANAS"
 BOB_TEXT = "BOB-PUBLIC-NOTES-ON-BANANAS"
 
-TOOL_NAMES = {"search_documents", "list_documents", "get_document", "tutor_stats"}
+TOOL_NAMES = {
+    "search_documents",
+    "list_documents",
+    "get_document",
+    "tutor_stats",
+    # Added 2026-08-01. The learner's model as a tool in its own right, rather
+    # than a document store that happens to contain lessons — see
+    # `.claude/rules/PLAN.md` → "The corpus as a tool".
+    "recall_lessons",
+}
 
 
 async def _seed_document(
@@ -166,6 +175,118 @@ async def test_search_tool_is_owner_scoped(session: AsyncSession) -> None:
     assert invocation.structured is not None
     contents = [m["content"] for m in invocation.structured["matches"]]
     assert contents == [BOB_TEXT]
+
+
+# ──────────── recall_lessons: the learner's model as a tool ────────────
+#
+# The point of this tool is a claim it can make and `search_documents` cannot:
+# *this person was never taught that*. These tests pin the claim, because it is
+# only true if the filter is exact — a lessons-only tool that actually searched
+# everything and then dropped the uploads would report "never taught" whenever
+# the nearest passages happened to come from a PDF.
+
+
+async def test_recall_lessons_reads_lessons_and_not_uploads(
+    session: AsyncSession
+) -> None:
+    learner = await make_user(session)
+    await _seed_document(
+        session, learner.id, "LESSON-ON-BANANAS", file_type="tutor/interaction"
+    )
+    await _seed_document(session, learner.id, "UPLOADED-PDF-ON-BANANAS")
+
+    invocation = await mcp_client.call_tool(
+        session=session,
+        owner_id=learner.id,
+        name="recall_lessons",
+        arguments={"question": "bananas", "top_k": 20},
+    )
+
+    assert invocation.ok
+    assert invocation.structured is not None
+    contents = [m["content"] for m in invocation.structured["matches"]]
+    # The upload is nearest by the same vector and is still not here — the
+    # filter is applied inside the search, not after it.
+    assert contents == ["LESSON-ON-BANANAS"]
+    assert invocation.structured["taught"] is True
+
+
+async def test_recall_lessons_says_never_taught_rather_than_nothing_matched(
+    session: AsyncSession
+) -> None:
+    """A learner with uploads but no lessons has been taught nothing.
+
+    The distinction this tool exists for. "No document matched" would be wrong
+    twice over: there is a matching document, and it is not a lesson.
+    """
+    learner = await make_user(session)
+    await _seed_document(session, learner.id, "UPLOADED-PDF-ON-BANANAS")
+
+    invocation = await mcp_client.call_tool(
+        session=session,
+        owner_id=learner.id,
+        name="recall_lessons",
+        arguments={"question": "bananas"},
+    )
+
+    assert invocation.ok
+    assert invocation.structured is not None
+    assert invocation.structured["taught"] is False
+    assert invocation.structured["match_count"] == 0
+    # And it tells the model what to do with that, because "0 results" invites
+    # a second search or an answer from the model's own knowledge.
+    assert "never been taught" in invocation.structured["note"]
+
+
+async def test_recall_lessons_is_owner_scoped(session: AsyncSession) -> None:
+    alice = await make_user(session)
+    bob = await make_user(session)
+    await _seed_document(
+        session, alice.id, ALICE_SECRET, file_type="tutor/interaction"
+    )
+
+    invocation = await mcp_client.call_tool(
+        session=session,
+        owner_id=bob.id,
+        name="recall_lessons",
+        arguments={"question": "bananas", "top_k": 20},
+    )
+
+    assert invocation.ok
+    assert ALICE_SECRET not in invocation.text
+    assert invocation.structured is not None
+    # Bob has no lessons of his own, so from where he stands the model is empty.
+    assert invocation.structured["taught"] is False
+
+
+async def test_recall_lessons_generates_nothing(session: AsyncSession) -> None:
+    """Retrieval only, like every tool here.
+
+    A tool that wrote its own answer would nest an unattributable generation
+    inside the caller's, hide its cost, and make the trace panel a lie about
+    what happened. Asserted on the *shape* of the reply — every match is a
+    stored passage, nothing composed.
+    """
+    learner = await make_user(session)
+    await _seed_document(
+        session, learner.id, "LESSON-ON-BANANAS", file_type="tutor/interaction"
+    )
+
+    invocation = await mcp_client.call_tool(
+        session=session,
+        owner_id=learner.id,
+        name="recall_lessons",
+        arguments={"question": "what did I learn about bananas?"},
+    )
+
+    assert invocation.structured is not None
+    assert set(invocation.structured["matches"][0]) == {
+        "lesson_id",
+        "topic",
+        "score",
+        "content",
+    }
+    assert invocation.structured["matches"][0]["content"] == "LESSON-ON-BANANAS"
 
 
 async def test_list_documents_tool_is_owner_scoped(session: AsyncSession) -> None:

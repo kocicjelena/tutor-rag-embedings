@@ -161,6 +161,89 @@ async def get_document(document_id: str) -> dict[str, Any]:
     }
 
 
+async def recall_lessons(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
+    """Ask this learner's own model: what have *they* been taught about something.
+
+    ## Why this is not `search_documents` with a filter
+
+    It is, mechanically. The difference is the contract, and that difference is
+    the reason this tool exists — Jelena's instruction, recorded in
+    `.claude/rules/PLAN.md`: the learner's material should be *integrated as a
+    tool*, not merely stored where a tool can look.
+
+    `search_documents` is a document store. From the model's side it cannot tell
+    a lesson from a PDF, and it has no notion of what this person has been
+    taught. This one's contract is the corpus: it answers from lessons only, and
+    it can say *"never taught"* — a claim `search_documents` is not entitled to
+    make, because a miss there might simply mean the answer was in an upload.
+
+    That distinction is what makes the answer worth something. "You have not
+    been taught this" is useful to someone studying; "no document matched" is
+    not the same sentence.
+
+    ## Retrieval only
+
+    No generation, like every other tool here. The calling model already has a
+    model; a tool that made its own LLM call would nest an unattributable
+    generation inside the first and make the trace panel a lie.
+    `POST /tutor/recall` is this plus generation, and that composition belongs
+    to the caller.
+    """
+    ctx = mcp_context.require()
+    if not question.strip():
+        raise ToolInputError("question must not be empty")
+
+    lessons, truncated = await tutor_model.lesson_ids(
+        session=ctx.session, owner_id=ctx.owner_id
+    )
+    if not lessons:
+        # An empty corpus is a *result*, and a definite one. Saying so beats
+        # returning zero matches, which the model would have to guess about.
+        return {
+            "question": question,
+            "taught": False,
+            "match_count": 0,
+            "matches": [],
+            "note": (
+                "This learner has never been taught anything by the tutor. "
+                "Say so — do not answer from your own knowledge, and do not "
+                "search again."
+            ),
+        }
+
+    retrieval = await rag.retrieve(
+        session=ctx.session,
+        owner_id=ctx.owner_id,
+        question=question,
+        top_k=max(MIN_TOP_K, min(top_k, MAX_TOP_K)),
+        document_ids=lessons,
+    )
+
+    return {
+        "question": question,
+        "taught": True,
+        "lessons_searched": len(lessons),
+        # Reported, never hidden. A silent truncation would turn "the oldest
+        # lessons were not considered" into "you were never taught that".
+        "truncated": truncated,
+        "match_count": len(retrieval.sources),
+        "matches": [
+            {
+                "lesson_id": str(source.document_id),
+                "topic": source.document_title,
+                "score": source.score,
+                "content": source.content,
+            }
+            for source in retrieval.sources
+        ],
+        "note": (
+            "These are the learner's own lessons and nothing else. If the "
+            "scores are low, they have probably not covered this — say so and "
+            "name what they have covered instead."
+        ),
+    }
+
+
 async def tutor_stats() -> dict[str, Any]:
     """What the current user's model contains: lesson count, topics, chunks."""
     ctx = mcp_context.require()

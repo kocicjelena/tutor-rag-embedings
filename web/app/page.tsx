@@ -8,6 +8,7 @@ import ChatStream from "@/components/ChatStream";
 import DocumentUpload from "@/components/DocumentUpload";
 import ProviderPicker from "@/components/ProviderPicker";
 import SignIn from "@/components/SignIn";
+import McpCatalogue from "@/components/McpCatalogue";
 import SourcePanel from "@/components/SourcePanel";
 import ToolTrace from "@/components/ToolTrace";
 import type { SourceChunk, ToolRun } from "@/lib/types";
@@ -82,6 +83,10 @@ export default function Home() {
           <ChatStream onSources={setSources} onToolRuns={setToolRuns} />
           <SourcePanel chunks={sources} />
           <ToolTrace runs={toolRuns} />
+          {/* The other half of the trace. `ToolTrace` shows what the agent did; this shows
+              what it was offered, fetched over a real MCP session so the two cannot
+              disagree about what exists. */}
+          <McpCatalogue />
         </div>
 
         <aside>

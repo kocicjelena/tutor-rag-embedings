@@ -21,7 +21,7 @@ import logging
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app import crud
 from app.core.config import settings
@@ -167,6 +167,40 @@ async def topics_for(
         .distinct()
     )
     return sorted({row for row in result.scalars().all() if row})
+
+
+# How many lesson documents a lessons-only search will consider.
+#
+# A ceiling rather than a page: the ids become named placeholders in the
+# index's `document_id IN (...)` clause, and SQLite has a parameter limit.
+# Exceeding it silently would be the bad failure — a search that quietly stopped
+# considering the oldest lessons — so `lesson_ids` reports when it truncates and
+# the tool says so in its answer.
+MAX_LESSON_FILTER = 400
+
+
+async def lesson_ids(
+    *, session: AsyncSession, owner_id: uuid.UUID
+) -> tuple[list[uuid.UUID], bool]:
+    """Which documents in this learner's corpus are *lessons*, newest first.
+
+    Returns the ids and whether the list was truncated.
+
+    This is what makes a lessons-only tool exact rather than approximate. The
+    alternative — search everything, then drop the uploads — is cheaper and
+    wrong in a way that hides: if the nearest five passages are all from an
+    uploaded PDF, the filter returns nothing and the tool reports "you have not
+    been taught this", which is a different and false claim.
+    """
+    result = await session.execute(
+        select(Document.id)
+        .where(Document.owner_id == owner_id)
+        .where(Document.file_type == TUTOR_FILE_TYPE)
+        .order_by(col(Document.created_at).desc())
+        .limit(MAX_LESSON_FILTER + 1)
+    )
+    ids = list(result.scalars().all())
+    return ids[:MAX_LESSON_FILTER], len(ids) > MAX_LESSON_FILTER
 
 
 async def corpus_stats(
