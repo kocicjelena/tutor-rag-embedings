@@ -49,12 +49,26 @@ retried fetch, a reconnect, a user reloading. `(owner_id, session_id, seq)` is
 unique, so a piece already stored is *skipped* rather than duplicated, and the
 caller is told which ones were skipped.
 
-## What is persisted
+## What is persisted — the row *and* the vector
 
-The row, not the vector. The vector is used to place the piece against what the
-learner already knows — its distance from the nearest thing in their corpus —
-and then dropped. Keeping it would mean a second embedding space to maintain
-beside the index, for a value that is computed once and never searched.
+Both. An earlier version kept only the row, using the vector to compute
+`novelty` and then dropping it. Jelena overruled that, 2026-07-31:
+
+> *"Keep it. Without that it is not worth having embeddings. Finding similarity
+> in the corpus, and making embeddings in a new model built from a base model
+> for embedding in the app, is where embedding algorithms shine. Copy-paste but
+> using streaming, and having coroutines as syntactic sugar that gives no value
+> to the technical flow, is not enough reason to build the app."*
+
+She was right, and the reasoning that dropped it was too narrow: it judged the
+vector by whether anything searched it *today*. Kept, it makes piece-to-piece
+similarity possible without re-embedding, and it is the raw material for
+training an embedding model of the learner's own.
+
+The vector goes to **`vec_learning`**, a separate `vec0` index at the active
+width — never to `vec_chunks`. The search index is still not written to by this
+pipeline, and a test asserts it: a half-finished sentence must not become
+something a citation can point at.
 """
 
 import logging
@@ -68,6 +82,8 @@ from app.models import (
     LearningEvent,
     LearningEventPublic,
     LearningModelState,
+    LearningNeighbour,
+    LearningNeighboursPublic,
     LearningPiece,
 )
 from app.services import vectors
@@ -152,23 +168,31 @@ async def _flush(
     pending: Sequence[LearningPiece],
     embedder: EmbeddingProvider,
 ) -> int:
-    """Embed a batch, place each piece against what is already known, store the rows."""
+    """Embed a batch, place each piece against what is already known, store row and vector."""
     vectorised = await embedder.embed([p.text for p in pending])
 
+    rows: list[tuple[uuid.UUID, Sequence[float]]] = []
     for piece, vector in zip(pending, vectorised, strict=True):
-        session.add(
-            LearningEvent(
-                owner_id=owner_id,
-                session_id=session_id,
-                seq=piece.seq,
-                text=piece.text,
-                term=term,
-                novelty=await _novelty(session, owner_id, vector),
-                embedded_with=embedder.model,
-            )
+        event = LearningEvent(
+            owner_id=owner_id,
+            session_id=session_id,
+            seq=piece.seq,
+            text=piece.text,
+            term=term,
+            novelty=await _novelty(session, owner_id, vector),
+            embedded_with=embedder.model,
         )
+        session.add(event)
+        rows.append((event.id, vector))
 
     await session.flush()
+    # The vector goes to `vec_learning`, never to `vec_chunks`. Kept on Jelena's
+    # instruction and against my earlier judgement, which was too narrow — I
+    # measured the vector by whether anything searched it today. Kept, it makes
+    # piece-to-piece similarity possible without re-embedding, and it is the raw
+    # material for an embedding model of the learner's own, which is the point
+    # where this app does something an API call cannot.
+    await vectors.append_learning(session, owner_id, session_id, rows)
     return len(pending)
 
 
@@ -237,6 +261,72 @@ async def read_state(
         mean_novelty=float(mean_novelty) if mean_novelty is not None else None,
         last_seq=int(last_seq) if last_seq is not None else None,
         embedded_with=embedder.model,
+        # Across every session, not just this one: the model is the whole of
+        # what this learner has accumulated, and a per-session count would fall
+        # back to zero each time they started a new lesson.
+        vectors=await vectors.count_learning_for_owner(session, owner_id),
+    )
+
+
+async def similar(
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    text: str,
+    *,
+    top_k: int = 5,
+    session_id: uuid.UUID | None = None,
+) -> LearningNeighboursPublic:
+    """What in this learner's own model resembles a passage.
+
+    This is what keeping the vector bought, and the reason Jelena overruled
+    dropping it: piece-to-piece similarity **without re-embedding the corpus**.
+    The comparison runs against `vec_learning`, so it answers "have I been told
+    this before, and where" over the material as it was actually taught — not
+    over the canonical chunks a search would return.
+
+    One embedding call for the query, one KNN, one read. It never touches
+    `vec_chunks`; the two indexes are not on a common scale and merging them
+    would rank plausibly and mean nothing (hard rule #5).
+    """
+    if not text.strip():
+        return LearningNeighboursPublic(query=text, matches=[], searched=0)
+
+    embedder = get_embedding_provider()
+    searched = await vectors.count_learning_for_owner(session, owner_id)
+    if not searched:
+        # Nothing to compare against. An empty list with the count beside it
+        # says "your model is empty", which reads differently from "nothing
+        # matched" and is the honest answer.
+        return LearningNeighboursPublic(query=text, matches=[], searched=0)
+
+    vectorised = await embedder.embed([text])
+    hits = await vectors.search_learning(
+        session, owner_id, vectorised[0], top_k, session_id=session_id
+    )
+    if not hits:
+        return LearningNeighboursPublic(query=text, matches=[], searched=searched)
+
+    distances = {hit.event_id: hit.distance for hit in hits}
+    result = await session.execute(
+        select(LearningEvent).where(col(LearningEvent.id).in_(list(distances)))
+    )
+    # Re-sorted by distance: the `IN` clause returns rows in whatever order the
+    # database likes, and the ranking is the whole answer.
+    rows = sorted(result.scalars().all(), key=lambda r: distances[r.id])
+
+    return LearningNeighboursPublic(
+        query=text,
+        searched=searched,
+        matches=[
+            LearningNeighbour(
+                seq=row.seq,
+                text=row.text,
+                term=row.term,
+                session_id=row.session_id,
+                distance=distances[row.id],
+            )
+            for row in rows
+        ],
     )
 
 

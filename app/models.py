@@ -365,6 +365,17 @@ class LearnRequest(SQLModel):
     pieces: list[LearningPiece]
 
 
+class LearningSimilarRequest(SQLModel):
+    """Ask what the learner's own model already holds near this text."""
+
+    text: str
+    top_k: int = Field(default=5, ge=1, le=20)
+    # Optional narrowing to one stretch of learning. Absent, it searches
+    # everything this learner has — which is the more useful default, because
+    # "have I been told this before" is rarely a question about today.
+    session_id: uuid.UUID | None = None
+
+
 class LearningEventPublic(SQLModel):
     seq: int
     text: str
@@ -382,6 +393,33 @@ class LearningModelState(SQLModel):
     mean_novelty: float | None
     last_seq: int | None
     embedded_with: str
+    # How many vectors this learner's model holds, across every session — the
+    # active width only, because that is what can be compared. Reported so the
+    # browser can show the model growing rather than only the row count: the
+    # vectors are the part that makes it a model rather than a transcript.
+    vectors: int = 0
+
+
+class LearningNeighbour(SQLModel):
+    """One piece of the learner's own material, near another."""
+
+    seq: int
+    text: str
+    term: str | None
+    session_id: uuid.UUID
+    # Cosine-ish distance from the query, straight out of the index. Smaller is
+    # nearer. Not converted to a similarity here because, unlike retrieval, this
+    # number is never shown beside a source panel's score — mixing the two
+    # conventions in one app is worse than either.
+    distance: float
+
+
+class LearningNeighboursPublic(SQLModel):
+    """What the learner's own model has that resembles a given passage."""
+
+    query: str
+    matches: list[LearningNeighbour]
+    searched: int
 
 
 class LearnResponse(SQLModel):

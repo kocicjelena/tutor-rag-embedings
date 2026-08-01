@@ -29,6 +29,8 @@ from app.models import (
     LearnRequest,
     LearnResponse,
     LearningModelState,
+    LearningNeighboursPublic,
+    LearningSimilarRequest,
     TutorInteractionCreate,
     TutorInteractionPublic,
     TutorModelExport,
@@ -214,6 +216,37 @@ async def learning_state(
     a session with nothing in it.
     """
     return await learning_stream.read_state(session, current_user.id, session_id)
+
+
+@router.post("/learn/similar", response_model=LearningNeighboursPublic)
+async def learning_similar(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: LearningSimilarRequest,
+) -> LearningNeighboursPublic:
+    """What in this learner's own model resembles a passage.
+
+    The reason the vectors are kept rather than computed and discarded, and the
+    thing that makes them worth the storage: piece-to-piece similarity over the
+    learner's material **without re-embedding it**. One embedding call for the
+    passage, one KNN against `vec_learning`, done.
+
+    Not a search over documents. `POST /tutor/recall` does that, against
+    `vec_chunks`, over canonical chunks of finished lessons. This looks at the
+    pieces as they actually arrived, so it answers a different question — *have
+    I been told this before, and when* — and the two indexes are never mixed,
+    because their distances are not on a common scale.
+
+    Nothing is generated here. It returns passages the learner already has.
+    """
+    return await learning_stream.similar(
+        session,
+        current_user.id,
+        body.text,
+        top_k=body.top_k,
+        session_id=body.session_id,
+    )
 
 
 @router.post("/interactions", response_model=TutorInteractionPublic, status_code=201)

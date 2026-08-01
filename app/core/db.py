@@ -104,7 +104,11 @@ async def init_db() -> None:
     """
     # Imported here so `app.models` is registered on SQLModel.metadata before
     # create_all, and to avoid a circular import with app.crud.
-    from app.services.vectors import BASE_DIMENSIONS, create_vector_table
+    from app.services.vectors import (
+        BASE_DIMENSIONS,
+        create_learning_table,
+        create_vector_table,
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
@@ -114,6 +118,11 @@ async def init_db() -> None:
         # statement when that width is 768.
         await create_vector_table(conn, BASE_DIMENSIONS)
         await create_vector_table(conn)
+        # The learning index, at the active width only. Unlike `vec_chunks`
+        # there is nothing historical at 768 to keep readable — this index is
+        # newer than the per-width scheme, so it has never held a vector the
+        # active model cannot compare against.
+        await create_learning_table(conn)
 
     async with SessionLocal() as session:
         await _ensure_user(

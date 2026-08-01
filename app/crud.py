@@ -70,6 +70,21 @@ async def get_users(
 
 
 async def delete_user(*, session: AsyncSession, db_user: User) -> None:
+    """Delete a user, and the vectors SQLite will not delete for us.
+
+    `ondelete="CASCADE"` reaches Document, DocumentChunk and LearningEvent, and
+    stops there: a `vec0` virtual table has no foreign keys, so both indexes
+    would keep every vector belonging to this user — orphaned rows describing
+    text that no longer exists, which nothing would ever notice because nothing
+    counts them.
+
+    Done before the delete, while the owner id is unambiguous, and in the same
+    transaction, so a user is removed from all three places or from none.
+    """
+    from app.services import vectors
+
+    await vectors.delete_for_owner(session, db_user.id)
+    await vectors.delete_learning_for_owner(session, db_user.id)
     await session.delete(db_user)
     await session.commit()
 

@@ -10,7 +10,12 @@ What these pin, in order of how badly a regression would hurt:
    normal rather than exceptional.
 3. **Nothing is committed when the embedder fails**, so a failure leaves the
    model as it was rather than half-updated.
-4. **Owner scoping**, as everywhere else.
+4. **Owner scoping**, as everywhere else — now in two indexes rather than one.
+5. **The vector is kept**, and goes to `vec_learning`. Jelena overruled dropping
+   it: piece-to-piece similarity without re-embedding is what makes the
+   embeddings worth having, and it is the raw material for a model of the
+   learner's own. Point 1 is asserted from both sides because of it — no rows in
+   `DocumentChunk`, and no vectors in `vec_chunks`.
 """
 
 import uuid
@@ -21,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import func, select
 
 from app.models import DocumentChunk, LearningEvent, LearningPiece
-from app.services import learning_stream
+from app.services import learning_stream, vectors
 from tests.conftest import auth_headers, make_user
 
 
@@ -206,6 +211,175 @@ async def test_state_is_scoped_to_the_owner(
     stranger = uuid.uuid4()
     state = await learning_stream.read_state(session, stranger, session_id)
     assert state.events == 0
+
+
+# ──────────────── The vector: kept, and what it is for ────────────────
+#
+# Jelena overruled an earlier decision to compute `novelty` and drop the vector.
+# These pin what keeping it bought — and, just as importantly, that it did not
+# cost the property the whole design rests on: the search index is still never
+# written to, which `test_the_search_index_is_untouched` above asserts from the
+# row side and `test_the_two_indexes_stay_apart` asserts from the vector side.
+
+
+async def test_the_vector_is_kept_not_discarded(session: AsyncSession) -> None:
+    owner = await make_user(session)
+    await _drain(session, owner.id, uuid.uuid4(), _pieces("a banana is a fruit"))
+
+    assert await vectors.count_learning_for_owner(session, owner.id) == 1
+
+
+async def test_the_two_indexes_stay_apart(session: AsyncSession) -> None:
+    """Learning goes to `vec_learning`; `vec_chunks` does not move.
+
+    The vector counterpart of the load-bearing test above. A pipeline that wrote
+    a half-finished sentence into the search index would make it something a
+    citation could point at, and nothing would fail — the count would simply be
+    wrong and the results slightly worse forever.
+    """
+    owner = await make_user(session)
+    before = await vectors.count_for_owner(session, owner.id)
+
+    await _drain(session, owner.id, uuid.uuid4(), _pieces("rockets go up"))
+
+    assert await vectors.count_for_owner(session, owner.id) == before
+    assert await vectors.count_learning_for_owner(session, owner.id) == 1
+
+
+async def test_state_reports_how_many_vectors_the_model_holds(
+    session: AsyncSession
+) -> None:
+    """Across every session — the model is the whole of what was accumulated."""
+    owner = await make_user(session)
+    await _drain(session, owner.id, uuid.uuid4(), _pieces("one", "two"))
+    await _drain(session, owner.id, uuid.uuid4(), _pieces("three"))
+
+    state = await learning_stream.read_state(session, owner.id, uuid.uuid4())
+    # No events in *this* session, but the model holds three vectors.
+    assert state.events == 0
+    assert state.vectors == 3
+
+
+async def test_similar_finds_the_near_piece_and_ranks_it_first(
+    session: AsyncSession
+) -> None:
+    """Piece-to-piece similarity, without re-embedding anything.
+
+    The stub embedder maps "banana" and "rocket" to different axes, so the
+    ranking here is a property of the index rather than of a real model's
+    behaviour.
+    """
+    owner = await make_user(session)
+    await _drain(
+        session,
+        owner.id,
+        uuid.uuid4(),
+        _pieces("a banana is a fruit", "rockets go up", "something else"),
+    )
+
+    found = await learning_stream.similar(
+        session, owner.id, "tell me about a banana", top_k=3
+    )
+    assert found.searched == 3
+    assert found.matches[0].text == "a banana is a fruit"
+    # Ranked, not merely returned: distances ascend.
+    assert [m.distance for m in found.matches] == sorted(
+        m.distance for m in found.matches
+    )
+
+
+async def test_similar_is_scoped_to_one_owner(session: AsyncSession) -> None:
+    """The tenant boundary, in the second index too.
+
+    `search_learning` takes `owner_id` positionally for the same reason
+    `search` does — this is one person's study material, and the index is where
+    the scoping is enforced rather than a WHERE clause a caller must remember.
+    """
+    mine = await make_user(session)
+    yours = await make_user(session)
+    await _drain(session, yours.id, uuid.uuid4(), _pieces("a banana is a fruit"))
+
+    found = await learning_stream.similar(session, mine.id, "banana", top_k=5)
+    assert found.matches == []
+    assert found.searched == 0
+
+
+async def test_similar_can_narrow_to_one_stretch_of_learning(
+    session: AsyncSession
+) -> None:
+    owner = await make_user(session)
+    today = uuid.uuid4()
+    await _drain(session, owner.id, today, _pieces("a banana is a fruit"))
+    await _drain(session, owner.id, uuid.uuid4(), _pieces("a banana is yellow"))
+
+    everything = await learning_stream.similar(session, owner.id, "banana", top_k=5)
+    assert len(everything.matches) == 2
+
+    just_today = await learning_stream.similar(
+        session, owner.id, "banana", top_k=5, session_id=today
+    )
+    assert [m.text for m in just_today.matches] == ["a banana is a fruit"]
+
+
+async def test_similar_on_an_empty_model_says_so(session: AsyncSession) -> None:
+    """"Your model is empty" and "nothing matched" are different answers."""
+    owner = await make_user(session)
+    found = await learning_stream.similar(session, owner.id, "anything")
+    assert found.matches == []
+    assert found.searched == 0
+
+
+async def test_similar_route_answers_from_the_learners_own_model(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await make_user(session)
+    headers = await auth_headers(client, user.email)
+    session_id = str(uuid.uuid4())
+
+    await client.post(
+        "/api/v1/tutor/learn",
+        headers=headers,
+        json={
+            "session_id": session_id,
+            "pieces": [{"seq": 0, "text": "a banana is a fruit"}],
+        },
+    )
+
+    response = await client.post(
+        "/api/v1/tutor/learn/similar",
+        headers=headers,
+        json={"text": "is a banana a fruit?"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["searched"] == 1
+    assert body["matches"][0]["text"] == "a banana is a fruit"
+
+
+async def test_similar_route_requires_a_caller(client: AsyncClient) -> None:
+    response = await client.post("/api/v1/tutor/learn/similar", json={"text": "x"})
+    assert response.status_code in (401, 403)
+
+
+async def test_deleting_a_user_takes_their_vectors_with_them(
+    session: AsyncSession
+) -> None:
+    """Nothing cascades into a vec0 table, so `delete_user` must do it by hand.
+
+    Without this the vectors outlive the rows they describe: orphaned, in an
+    index nothing will ever query them from, and counted by nothing that would
+    notice. It is one person's study material, which is why it is worth the
+    explicit call rather than being left to a periodic sweep that does not exist.
+    """
+    from app import crud
+
+    owner = await make_user(session)
+    await _drain(session, owner.id, uuid.uuid4(), _pieces("a banana is a fruit"))
+    assert await vectors.count_learning_for_owner(session, owner.id) == 1
+
+    await crud.delete_user(session=session, db_user=owner)
+
+    assert await vectors.count_learning_for_owner(session, owner.id) == 0
 
 
 async def test_route_returns_accepted_skipped_and_state(

@@ -26,6 +26,36 @@ and the distances would rank plausibly while meaning nothing. So a query
 searches exactly one table: the active provider's. Documents indexed under a
 different model are *reported* as unsearchable rather than silently missed; see
 `.claude/rules/VECTORS.md` and `app/scripts/reembed.py`.
+
+## Two indexes, and they are not two copies
+
+`vec_chunks` and `vec_learning` hold different things for different reasons, and
+conflating them would undo both.
+
+    vec_chunks    the search index. Canonical chunks of finished documents and
+                  saved lessons. What retrieval reaches, what a citation points
+                  at, what `reembed` maintains.
+
+    vec_learning  the learner's model as it is being built. One vector per piece
+                  of learning, at the boundary it actually arrived on, written
+                  live by `app/services/learning_stream.py`.
+
+Jelena's decision, 2026-07-31, overruling an earlier plan to keep only the row:
+
+> *"Keep it. Without that it is not worth having embeddings. Finding similarity
+> in the corpus, and making embeddings in a new model built from a base model
+> for embedding in the app, is where embedding algorithms shine."*
+
+She was right and the earlier reasoning was too narrow — it judged the vector by
+whether anything searched it *today*. Kept, it makes piece-to-piece similarity
+possible without re-embedding, and it is the raw material for an embedding model
+of the learner's own.
+
+**The live pipeline still never writes to the search index.** That property is
+tested, and it is what keeps a half-finished sentence out of the thing citations
+point at. Boundaries have to be canonical only for index chunks, because a
+search must not depend on how the text arrived; model material has no canonical
+boundary to preserve.
 """
 
 import re
@@ -41,6 +71,16 @@ from app.core.config import settings
 
 VECTOR_TABLE = "vec_chunks"
 
+# The second index, and it is a *different kind of thing* — see the section at
+# the bottom of this module. `vec_chunks` is the search index: what a query
+# reaches. `vec_learning` holds the pieces of learning as they arrived, so the
+# learner's own model has vectors of its own without a re-embedding pass.
+#
+# They are never unioned, never merged, and never searched together. The same
+# reason as hard rule #5: two sets of distances that are not on a common scale
+# produce a ranking that looks fine and means nothing.
+LEARNING_TABLE = "vec_learning"
+
 # The width the original table was created with. Kept as a literal rather than
 # read from settings: it is a fact about rows already on disk, not a setting.
 BASE_DIMENSIONS = 768
@@ -48,10 +88,19 @@ BASE_DIMENSIONS = 768
 # Suffixed tables carry a `d` so they cannot collide with vec0's own shadow
 # tables, which share the prefix (`vec_chunks_rowids`, `vec_chunks_info`, ...).
 _SUFFIXED = re.compile(rf"^{VECTOR_TABLE}_d(\d+)$")
+_LEARNING_SUFFIXED = re.compile(rf"^{LEARNING_TABLE}_d(\d+)$")
 
 
 class VectorHit(NamedTuple):
     chunk_id: uuid.UUID
+    distance: float
+
+
+class LearningHit(NamedTuple):
+    """A neighbouring piece of learning, and how far away it is."""
+
+    event_id: uuid.UUID
+    session_id: uuid.UUID
     distance: float
 
 
@@ -268,6 +317,189 @@ async def delete_document(session: AsyncSession, document_id: uuid.UUID) -> None
         await session.execute(
             text(f"DELETE FROM {table} WHERE document_id = :document_id"),
             {"document_id": str(document_id)},
+        )
+
+
+# ──────────────────── The learning index ────────────────────
+#
+# Everything below is `vec_learning`. It mirrors the shape above deliberately —
+# per-width tables, owner scoped inside the index, `d` in the suffix — because
+# the reasoning is identical and a reader who understands one understands both.
+# What it does *not* share is a query: nothing here reads `vec_chunks` and
+# nothing above reads this.
+
+
+def learning_table_for(dimensions: int | None = None) -> str:
+    """The learning index holding vectors of this width."""
+    width = _checked(dimensions)
+    return LEARNING_TABLE if width == BASE_DIMENSIONS else f"{LEARNING_TABLE}_d{width}"
+
+
+async def create_learning_table(
+    conn: AsyncConnection, dimensions: int | None = None
+) -> str:
+    """Create the vec0 index for learning events at one width. Idempotent.
+
+    `session_id` is a metadata column beside `owner_id` so a search can be
+    narrowed to one stretch of learning without a join — "what in this lesson is
+    like this piece" is the question the live pipeline asks, and it is asked
+    while the lesson is still being written.
+    """
+    width = _checked(dimensions)
+    table = learning_table_for(width)
+    await conn.execute(
+        text(
+            f"CREATE VIRTUAL TABLE IF NOT EXISTS {table} USING vec0("
+            "  event_id TEXT PRIMARY KEY,"
+            "  owner_id TEXT,"
+            "  session_id TEXT,"
+            f"  embedding float[{width}]"
+            ")"
+        )
+    )
+    return table
+
+
+async def learning_tables(session: AsyncSession) -> list[str]:
+    """Every learning vec0 index that exists, active or not.
+
+    Same two filters as `vector_tables`, and for the same reason: vec0's shadow
+    tables share the prefix, so the name alone would return tables that are not
+    indexes.
+    """
+    result = await session.execute(
+        text(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND sql LIKE '%USING vec0%' AND (name = :base OR name LIKE :pattern)"
+        ),
+        {"base": LEARNING_TABLE, "pattern": f"{LEARNING_TABLE}_d%"},
+    )
+    names = [str(row[0]) for row in result.all()]
+    return [n for n in names if n == LEARNING_TABLE or _LEARNING_SUFFIXED.match(n)]
+
+
+async def append_learning(
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    session_id: uuid.UUID,
+    rows: Sequence[tuple[uuid.UUID, Sequence[float]]],
+    *,
+    dimensions: int | None = None,
+) -> None:
+    """Insert vectors for learning events.
+
+    Append only, and there is deliberately no `begin_*` counterpart. A document
+    is re-ingested whole, so its vectors are cleared first; a stretch of learning
+    only ever grows, and a piece that was already stored is skipped upstream by
+    the `(owner_id, session_id, seq)` constraint rather than overwritten here.
+    """
+    if not rows:
+        return
+    width = _checked(dimensions)
+    table = learning_table_for(width)
+    await session.execute(
+        text(
+            f"INSERT OR IGNORE INTO {table} "
+            "(event_id, owner_id, session_id, embedding) "
+            "VALUES (:event_id, :owner_id, :session_id, :embedding)"
+        ),
+        [
+            {
+                "event_id": str(event_id),
+                "owner_id": str(owner_id),
+                "session_id": str(session_id),
+                "embedding": pack(vector, width),
+            }
+            for event_id, vector in rows
+        ],
+    )
+
+
+async def search_learning(
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    query_vector: Sequence[float],
+    top_k: int,
+    *,
+    session_id: uuid.UUID | None = None,
+    dimensions: int | None = None,
+) -> list[LearningHit]:
+    """Nearest pieces of learning, always scoped to one owner.
+
+    `owner_id` is positional and required, exactly as in `search`. The rule is
+    not about which table it is — it is that no call shape may omit the tenant.
+
+    One table, never a union across widths, and never a union with `vec_chunks`.
+    """
+    width = _checked(dimensions)
+    table = learning_table_for(width)
+    if table not in await learning_tables(session):
+        return []
+
+    params: dict[str, object] = {
+        "query": pack(query_vector, width),
+        "k": top_k,
+        "owner_id": str(owner_id),
+    }
+    sql = (
+        f"SELECT event_id, session_id, distance FROM {table} "
+        "WHERE embedding MATCH :query AND k = :k AND owner_id = :owner_id"
+    )
+    if session_id is not None:
+        params["session_id"] = str(session_id)
+        sql += " AND session_id = :session_id"
+
+    result = await session.execute(text(sql), params)
+    rows: Sequence[Row[tuple[str, str, float]]] = result.all()
+    return [
+        LearningHit(uuid.UUID(r[0]), uuid.UUID(r[1]), float(r[2])) for r in rows
+    ]
+
+
+async def delete_learning_for_owner(
+    session: AsyncSession, owner_id: uuid.UUID
+) -> None:
+    """Remove every learning vector belonging to one owner, at every width.
+
+    SQLite foreign keys do not cascade into a virtual table, so deleting a User
+    row leaves these behind — and unlike a stale document vector, which is
+    merely unreachable, these are one person's study material. Called when a
+    user is deleted.
+    """
+    for table in await learning_tables(session):
+        await session.execute(
+            text(f"DELETE FROM {table} WHERE owner_id = :owner_id"),
+            {"owner_id": str(owner_id)},
+        )
+
+
+async def count_learning_for_owner(
+    session: AsyncSession, owner_id: uuid.UUID, *, dimensions: int | None = None
+) -> int:
+    """How many learning vectors this owner has in the **active** index."""
+    table = learning_table_for(_checked(dimensions))
+    if table not in await learning_tables(session):
+        return 0
+    result = await session.execute(
+        text(f"SELECT count(*) FROM {table} WHERE owner_id = :owner_id"),
+        {"owner_id": str(owner_id)},
+    )
+    return int(result.scalar_one())
+
+
+async def delete_for_owner(session: AsyncSession, owner_id: uuid.UUID) -> None:
+    """Remove every chunk vector belonging to one owner, at every width.
+
+    The counterpart to `delete_document`, for the case where the documents go
+    away without anyone deleting them one by one: a User row is deleted, SQLite
+    cascades to Document and DocumentChunk, and **nothing cascades into a vec0
+    virtual table**. Without this the vectors outlive the rows they describe —
+    orphaned, unreachable, and counted by nothing that would notice.
+    """
+    for table in await vector_tables(session):
+        await session.execute(
+            text(f"DELETE FROM {table} WHERE owner_id = :owner_id"),
+            {"owner_id": str(owner_id)},
         )
 
 
