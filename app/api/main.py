@@ -1,12 +1,14 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    admin,
     documents,
     embeddings,
     keys,
     login,
     mcp,
     providers,
+    public,
     quota,
     query,
     status,
@@ -25,4 +27,6 @@ api_router.include_router(embeddings.router)
 api_router.include_router(tutor.router)
 api_router.include_router(mcp.router)
 api_router.include_router(quota.router)
+api_router.include_router(admin.router)
+api_router.include_router(public.router)
 api_router.include_router(status.router)

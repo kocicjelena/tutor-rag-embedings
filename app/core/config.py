@@ -217,6 +217,22 @@ class Settings(BaseSettings):
     # message simply omits the sentence when it is unset.
     SUPPORT_EMAIL: str = ""
 
+    # Print the demo account's email and password on the sign-in page.
+    #
+    # **Off by default, and it must stay that way.** This publishes a working
+    # password on an unauthenticated endpoint. That is a deliberate thing to do
+    # for a demo account on a public showcase and a catastrophic thing to do by
+    # accident, so it is opt-in per deployment and never a default.
+    #
+    # What a visitor should understand, and what the sign-in page says: the
+    # demo account is **shared**. Everyone signing in with it sees the same
+    # corpus, and they share one free allowance — so the first person to use
+    # its three uploads has used them for everybody. It is there to *look*
+    # around a corpus that already has content in it. Anyone who wants to
+    # build their own model registers, which takes ten seconds and gives them
+    # their own allowance, their own documents and their own model to download.
+    PUBLISH_DEMO_CREDENTIALS: bool = False
+
     @model_validator(mode="after")
     def _check_secrets(self) -> Self:
         """Fail fast on placeholder secrets outside local development.

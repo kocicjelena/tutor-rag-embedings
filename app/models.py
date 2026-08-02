@@ -768,3 +768,86 @@ class QuotaPublic(SQLModel):
     can_upload: bool
     can_learn: bool
     support_email: str | None = None
+
+
+# ─────────────────────── Who has been using this app ───────────────────────
+
+
+class SignInEvent(SQLModel, table=True):
+    """One row per successful sign-in.
+
+    The only thing here that had to be *recorded* rather than counted. Signing
+    up, uploading and taking a lesson all leave rows behind because the app
+    works; coming back and reading does not, and *"did anyone actually return"*
+    is the question a showcase owner most wants answered.
+
+    A new table rather than a `last_seen_at` column on `User`, for the reason
+    every table here is new: `create_all` adds missing tables and never missing
+    columns, and there are no migrations. See `.claude/rules/DATABASE.md` §4.
+
+    Rows rather than a single timestamp, because a count of visits and a
+    first/last pair are different facts and rows give all three.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    at: datetime = Field(default_factory=_utcnow, index=True)
+
+
+class UserActivity(SQLModel):
+    """What one account has done.
+
+    `first_sign_in` stands in for "registered at", and the substitution is
+    stated rather than hidden: **`User` carries no timestamp**, and a column
+    cannot be added to an existing table here. Registration signs the new
+    account straight in, so for anyone who arrived through the sign-up form the
+    two are within a second of each other. For the accounts created from `.env`
+    it is null until somebody logs in, which is also the truth.
+    """
+
+    email: str
+    is_superuser: bool
+    sign_ins: int
+    first_sign_in: datetime | None = None
+    last_sign_in: datetime | None = None
+    uploads: int
+    lessons: int
+
+
+class ActivityReport(SQLModel):
+    """The whole picture, for `GET /admin/activity` and the script."""
+
+    window_days: int
+    generated_at: datetime
+
+    total_users: int
+    new_users: int
+    sign_ins: int
+    uploads: int
+    lessons: int
+    learning_events: int
+
+    total_uploads: int
+    total_lessons: int
+
+    users: list[UserActivity]
+
+
+class SignInInfo(SQLModel):
+    """What the sign-in page shows before anyone is signed in.
+
+    `demo_password` is a real, working password when it is not null. It is
+    returned only when the deployment explicitly asks for that — see
+    `PUBLISH_DEMO_CREDENTIALS`. Everything here is null or a plain fact by
+    default, so a misconfiguration publishes nothing rather than something.
+    """
+
+    registration_open: bool
+    quota_enabled: bool
+    free_uploads: int
+    free_lessons: int
+    demo_email: str | None = None
+    demo_password: str | None = None
+    support_email: str | None = None
