@@ -73,6 +73,19 @@ primary_region = "fra"
   # "false" and the door shuts immediately, without a redeploy of anything else.
   OPEN_REGISTRATION = "true"
 
+  # Print the demo account's email and password on the sign-in page.
+  #
+  # This is the *switch*; the password itself is a secret and is set with
+  # `fly secrets set DEMO_USER_PASSWORD=…`. Both are required — the route
+  # publishes nothing unless an account exists and this is true, which is why
+  # it defaults to false everywhere else and is turned on here explicitly.
+  #
+  # It is the right call for this deployment and the wrong one for almost any
+  # other: it puts a working password on an unauthenticated endpoint. That is
+  # a demo account on a public showcase doing its job, and it would be a
+  # serious mistake on anything holding real data.
+  PUBLISH_DEMO_CREDENTIALS = "true"
+
 # The database and its vector index live in one SQLite file, so this single
 # mount is the entire application state. A volume binds the app to one machine
 # in one region — which is correct here rather than a limitation: SQLite has one
