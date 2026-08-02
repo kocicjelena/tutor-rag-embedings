@@ -384,34 +384,6 @@ unmounts — and what is kept is the current answer and nothing else.
 that is *yours*, exportable and portable, on the way to a model that keeps
 learning from its own use rather than being fixed when it was trained.
 
-## What the shared state bought
-
-Added 2026-07-31, and worth stating because it is the kind of change that
-usually shows up as "refactoring" and nothing else.
-
-The browser state moved into one store — React Context and `useReducer`, one
-reducer per slice, actions as `useCallback`. It did what it was supposed to do,
-which is remove whole *classes* of bug rather than fix instances:
-
-- **One fact, one owner.** The provider catalogue was fetched in three places
-  with three copies of the same "prefer the default, fall back to what works"
-  rule, so choosing Claude on one page did not survive walking to another. It
-  does now.
-- **A live bug fell out of it.** With the picker reading the store and the tutor
-  still holding its own copy, the page would have shown one model and requested
-  another. Two owners of one fact do not disagree loudly.
-- **Four props disappeared** — each one a callback threaded up or a value
-  threaded down purely because state sat in the wrong component.
-- **The stream outlives the component.** It is drained by an action inside the
-  provider, so nothing is lost because a panel unmounted mid-answer.
-- **Dispatch is type-checked.** The action constants carry literal types, so a
-  wrong payload is a build error rather than a reducer quietly reading
-  `undefined`.
-
-What deliberately did *not* move: text inputs, open/closed toggles, expanded
-rows. If only one component reads it and it should die with that component, it
-stays local — a store holding a text field is a store nobody wants to debug.
-
 ## A note on the data
 
 Everything in the demo content is invented. Please don't put real, personal, or
