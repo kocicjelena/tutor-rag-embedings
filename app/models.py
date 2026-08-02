@@ -744,3 +744,27 @@ class TokenPayload(SQLModel):
 
 class Message(SQLModel):
     message: str
+
+
+class QuotaPublic(SQLModel):
+    """The free tier, as the browser sees it.
+
+    `enforced` is separate from the numbers on purpose: locally and in the test
+    suite the limits exist but do not bite, and a UI that showed "3 of 3 used"
+    as a warning on a machine where nothing is limited would be lying in the
+    direction that costs trust.
+
+    `support_email` is `None` unless configured, so the UI omits that sentence
+    rather than printing an empty one.
+    """
+
+    enforced: bool
+    uploads_used: int
+    uploads_limit: int
+    uploads_left: int
+    lessons_used: int
+    lessons_limit: int
+    lessons_left: int
+    can_upload: bool
+    can_learn: bool
+    support_email: str | None = None
