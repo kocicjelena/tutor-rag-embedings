@@ -1,5 +1,6 @@
 """Token issuing."""
 
+import logging
 from datetime import timedelta
 from typing import Annotated
 
@@ -11,6 +12,9 @@ from app.api.deps import CurrentUser, SessionDep
 from app.core import security
 from app.core.config import settings
 from app.models import Token, UserPublic
+from app.services import activity
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["login"])
 
@@ -30,6 +34,15 @@ async def login_access_token(
         raise HTTPException(400, "Incorrect email or password")
     if not user.is_active:
         raise HTTPException(400, "Inactive user")
+
+    # One row, so the owner of this instance can answer "did anyone come back".
+    # Wrapped because failing to *log* a sign-in must never fail the sign-in:
+    # the person is authenticated, and a bookkeeping error is not their problem.
+    try:
+        await activity.record_sign_in(session, user.id)
+    except Exception:
+        logger.exception("could not record sign-in for %s", user.id)
+
     return Token(
         access_token=security.create_access_token(
             user.id,

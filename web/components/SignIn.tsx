@@ -1,7 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useContextActions } from "@/context/GlobalContext";
+
+type SignInInfo = {
+  registration_open?: boolean;
+  quota_enabled?: boolean;
+  free_uploads?: number;
+  free_lessons?: number;
+  demo_email?: string | null;
+  demo_password?: string | null;
+  support_email?: string | null;
+};
 
 /**
  * Sign in, or create an account.
@@ -26,8 +36,27 @@ export default function SignIn() {
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<SignInInfo>({});
+
+  useEffect(() => {
+    // Never fatal: the form works without any of this. It only decides whether
+    // a demo account and a limits note can be offered.
+    void fetch("/api/signin-info")
+      .then((r) => r.json())
+      .then(setInfo)
+      .catch(() => setInfo({}));
+  }, []);
 
   const registering = mode === "register";
+  const demo = info.demo_email && info.demo_password ? info : null;
+
+  function useDemo() {
+    if (!demo) return;
+    setMode("signin");
+    setError(null);
+    setEmail(demo.demo_email ?? "");
+    setPassword(demo.demo_password ?? "");
+  }
 
   function switchTo(next: Mode) {
     setMode(next);
@@ -178,16 +207,103 @@ export default function SignIn() {
             Your account is yours: the lessons you take, the documents you
             upload and the model you build are scoped to you — and you can
             download the whole thing whenever you like.
+            {info.quota_enabled && (
+              <>
+                {" "}
+                A new account can upload{" "}
+                <strong>{info.free_uploads ?? 3} documents</strong> and take{" "}
+                <strong>{info.free_lessons ?? 10} lessons</strong>. Reading,
+                searching, recall and the downloads are unlimited.
+              </>
+            )}
+          </>
+        ) : info.registration_open === false ? (
+          <>
+            Registration is closed on this instance. Use the demo account below,
+            or ask for an account.
           </>
         ) : (
           <>
-            No account yet? <strong>Create account</strong> above. The
-            administrator account comes from{" "}
-            <span className="mono">FIRST_SUPERUSER</span> in the backend&apos;s{" "}
-            <span className="mono">.env</span>.
+            No account yet? <strong>Create account</strong> above — it takes ten
+            seconds and gives you your own corpus and your own model to
+            download.
           </>
         )}
       </p>
+
+      {demo && (
+        <div
+          style={{
+            marginTop: 14,
+            paddingTop: 14,
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+            Just want to look around?
+          </div>
+          <p className="hint" style={{ fontSize: 12, lineHeight: 1.5 }}>
+            Sign in with the demo account. It already has lessons in it, so
+            recall, the tool trace and both model downloads work straight away.
+          </p>
+          <div
+            className="mono"
+            style={{
+              fontSize: 12,
+              marginTop: 8,
+              padding: "8px 10px",
+              background: "var(--panel-2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              lineHeight: 1.7,
+              wordBreak: "break-all",
+            }}
+          >
+            {demo.demo_email}
+            <br />
+            {demo.demo_password}
+          </div>
+          <button
+            type="button"
+            className="secondary"
+            onClick={useDemo}
+            style={{ marginTop: 8, fontSize: 13 }}
+          >
+            Fill this in for me
+          </button>
+          {/* The honest part. A shared account shares one allowance, so the
+              first visitor to use its uploads has used them for everybody —
+              which would read as a broken app if nobody said so first. */}
+          <p className="hint" style={{ fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+            It is <strong>shared</strong>: everyone who signs in with it sees
+            the same documents
+            {info.quota_enabled && <> and shares one upload allowance</>}. To
+            build a model that is yours,{" "}
+            <button
+              type="button"
+              onClick={() => switchTo("register")}
+              style={{
+                background: "none",
+                border: 0,
+                padding: 0,
+                font: "inherit",
+                color: "var(--accent)",
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              create an account
+            </button>
+            .
+          </p>
+        </div>
+      )}
+
+      {info.support_email && (
+        <p className="hint" style={{ fontSize: 11, marginTop: 12 }}>
+          Questions? <span className="mono">{info.support_email}</span>
+        </p>
+      )}
     </div>
   );
 }
