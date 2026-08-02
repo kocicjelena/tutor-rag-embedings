@@ -6,8 +6,8 @@
 # deploy before any secret exists. Every one of those is a decision already
 # made here, with a reason, so the generated version would be a step backwards.
 #
-#     fly apps create tutor-rag-embedings
-#     fly volumes create rag_data --size 1 --region fra --app tutor-rag-embedings
+#     fly apps create tutor-rag-embeddings
+#     fly volumes create rag_data --size 1 --region fra --app tutor-rag-embeddings
 #     fly secrets set SECRET_KEY=… IDENTITY_PEPPER=… FIRST_SUPERUSER=… FIRST_SUPERUSER_PASSWORD=…
 #     fly deploy
 #
@@ -15,7 +15,7 @@
 # refuse to start on a placeholder SECRET_KEY, and deploy/start.sh checks first
 # so the failure is one clear line — but it is still a wasted cycle.
 
-app = "tutor-rag-embedings"
+app = "tutor-rag-embeddings"
 primary_region = "fra"
 
 # Deploy the image that CI already built and *started*, rather than making
