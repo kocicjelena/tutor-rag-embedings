@@ -302,30 +302,27 @@ embedding model has no generation step to read a prompt. The route says so in it
 response (`note_affects_vectors: false`) rather than letting a "custom model" badge imply
 otherwise.
 
-**"Fine-tuned" usually means prompted.** The downloadable `Modelfile` carries your lessons
-in the base model's *context*. It runs, it answers in your material, and it changes no
-weights. The file's own header says this in the first paragraph. *Fine-tuning teaches
-style; retrieval teaches knowledge* — and conflating them is how demos overpromise.
+The downloadable `Modelfile` carries your lessons in the base model's *context*. It runs,
+it answers in your material, and it changes no weights. The file's own header says this in
+the first paragraph. *Fine-tuning teaches style; retrieval teaches knowledge* — and
+conflating them is how demos overpromise.
 
 **"Grounded" usually means "the search returned something."** It does here too, and the
 README says so. A `vec0` KNN returns the *k* nearest vectors whether or not any of them
 are relevant. Distance is not relevance, and a green badge that only means "a query ran"
 is a badge worth distrusting.
 
-**Two embedding spaces are not comparable, and merging them looks fine.** Change the
-embedding model and old documents become unreachable — not worse, unreachable. This app
-marks them rather than quietly returning them, because a ranking mixed across two models
-is meaningless *and* plausible, which is the worst combination available.
+Change the embedding model and old documents become unreachable — not worse, unreachable.
+This app marks them rather than quietly returning them, because a ranking mixed across two
+models is meaningless *and* plausible, which is the worst combination available.
 
 **Benchmarks are usually run once.** The numbers here — 475 MB peak while embedding, 18
 of 30 local models able to call tools, 0.51 retrieval distance on a seeded question — were
 each produced by running the thing and reading the output, and the command is in the
 repository.
 
-**"It works" usually means "the tests pass."** A chunking bug in this codebase once turned
-a 286-character document into 201 chunks and passed every test. So `/status` **probes**
-capabilities rather than listing them, and where something is claimed but unverified, it
-says so.
+`/status` **probes** capabilities rather than listing them, and where something is claimed
+but unverified, it says so.
 
 **Refusals are usually hidden.** `/status` has a fourth state — *explored, refused* — for
 capabilities examined and deliberately not built, with the reason. A tool that makes its
