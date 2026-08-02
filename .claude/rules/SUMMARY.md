@@ -26,7 +26,11 @@ the click-by-click deployment manual, and `other_agent.md` is the original
 defect inventory. `docs/SESSIONS.md`, outside the repo entirely, is the short
 readable summary of where the project stands.
 
-Added since: `RUNBOOK-DOCKER.md`, the practical card for the Docker flow now
+Added since: `RUNBOOK-TUNNEL.md`, how to publish the laptop through a
+Cloudflare tunnel — the quick one needs no account and no money, the named one
+needs a domain. `DATABASE.md`, everything about the database in one place at
+Jelena's request, and `BEFORE-DEPLOY.md`, the list of what only she can
+provide. `RUNBOOK-DOCKER.md`, the practical card for the Docker flow now
 that it has actually been built and run — where the files and the data are, the
 two services and which one you want, stop/start/rebuild, how Ollama runs
 separately as a systemd unit, and the two `.env`-precedence traps that cost the
