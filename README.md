@@ -15,6 +15,21 @@
 Anthropic Claude · Model Context Protocol · Next.js 16 · TypeScript strict · Docker ·
 async Python throughout.
 
+### What it is for
+
+Not a product, and not a thing to be built for months. It exists so you can **feel how
+much retrieval and embeddings actually change an answer** — by running it on your own
+material, in an afternoon.
+
+Ask a question with an empty corpus and you get a general answer. Teach the tutor two
+things, upload one document, ask again, and the answer arrives grounded in your own words
+with the passages it used listed underneath. That difference is the whole point, and it is
+much more convincing to *watch* than to read about.
+
+Everything else here — the MCP tools, the agent loop, the exportable model, the free tier
+— exists to make that difference visible and to show what an indexed corpus becomes once
+something can call it.
+
 ---
 
 > ## ⚠️ Honest status
@@ -316,6 +331,26 @@ promise; `nomic-embed-text` is whatever that tag points at today. Pinning it mea
 upstream release cannot silently change the numbers underneath an index that has no way
 to survive the change — and if you do change it deliberately,
 `uv run python -m app.scripts.reembed` is the way back.
+
+**Which leads to the thing a real deployment has to do: ship its own embedding model.**
+
+An app that borrows whichever `nomic-embed-text` happens to be installed on the host has
+no idea what produced its vectors. Two servers running the same code can then hold two
+different embedding spaces, and neither will say so — the index looks healthy, the search
+returns results, and the ranking is quietly meaningless.
+
+So the embedding model belongs **inside the image**, at a fixed version, pulled at build
+time and never at boot. That is what `deploy/ollama-base/` does here: a base image
+carrying Ollama and the embedding model, published once and used by every deployment, so
+the image digest fixes the weights. `deploy/start.sh` then *checks* the model is present
+and refuses to start without it, rather than pulling a replacement and hoping.
+
+**One distinction worth keeping separate**, because it is easy to run the two together:
+the embedding model and the chat model are different jobs, and `nomic-embed-text` cannot
+do the second one — it has no generation step at all. Embedding turns your text into
+vectors; a chat model writes the answer from what those vectors retrieved. Pinning
+matters much more for the first: a changed chat model gives a differently-worded answer,
+while a changed embedding model invalidates everything already indexed.
 
 The downloadable `Modelfile` carries your lessons in the base model's *context*. It runs,
 it answers in your material, and it changes no weights. The file's own header says this in
