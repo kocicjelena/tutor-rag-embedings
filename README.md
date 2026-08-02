@@ -1,34 +1,48 @@
-# mcp-py
+# mcp-py — a tutor that builds a model of what you have learned
 
-A small app for learning, built to show three things working together: **LLM, RAG and MCP.**
+**Ask it to explain something. It teaches you, embeds each piece of the answer as it
+arrives, and indexes it — so your next question can be answered from your own material
+instead of from the open internet.** What accumulates is a corpus you own: searchable by
+meaning rather than by keyword, exportable as a file, and runnable on your own machine as
+an Ollama model.
 
-You upload a document, or you learn something with the tutor. The text is turned into
-vectors locally and stored. When you ask a question, the app finds the most relevant
-pieces of *your own* material and asks a language model to answer using only those,
-with citations. You choose who answers — a local Ollama model, or Claude — per request.
+Upload documents too, and they join the same index. Every answer cites the passages it
+used, and **you choose who writes it — a local Ollama model or Claude — per question.**
 
-The tutor is the interesting half. You ask it to explain something, it teaches you, and
-every exchange is indexed. Over time that becomes **your model**: a corpus of what you
-have been taught, which the app can answer from and which you can export and download.
+Embedding is always local. Anthropic ships no embeddings API, so the vectors are produced
+on your machine by Ollama, whichever model answers.
+
+### Why this repository might interest you
+
+| If you are… | What to look at |
+|---|---|
+| **learning RAG** | a complete pipeline with nothing hidden — chunking, embedding, a `vec0` vector index, retrieval, citations, and the honest limits of each |
+| **learning MCP** | a real server with five tools, a client speaking the actual protocol, and an agent loop where the *model* chooses what to call — visible in the UI as it happens |
+| **building agents** | tool calling on **both** Claude and Ollama, behind one provider-neutral interface, with the trap that took longest documented |
+| **writing async Python** | PEP 525 async generators as an ingestion pipeline, streaming SSE, and one place where coroutines genuinely earn their keep rather than decorate |
+| **doing full-stack** | FastAPI + SQLModel behind Next.js 16 App Router, with the JWT never reaching the browser |
+| **evaluating engineering** | 272 tests, `pyright` strict, and a `/status` page where the app *probes* its own capabilities instead of claiming them |
+
+**The stack, in one line:** FastAPI · SQLModel · SQLite + `sqlite-vec` · Ollama ·
+Anthropic Claude · Model Context Protocol · Next.js 16 · TypeScript strict · Docker ·
+async Python throughout.
 
 ---
 
-> ## ⚠️ Work in progress
+> ## ⚠️ Honest status
 >
-> This is a personal learning and showcase project, built in the open. It runs, it is
-> tested, and the parts marked *available* below genuinely work — but it is **not
-> finished and not production software.**
+> A personal learning and showcase project, built in the open. It runs, it is tested,
+> and everything described as working genuinely works — but it is **not finished and not
+> production software.**
 >
-> The **MCP layer works end to end**: an MCP server with four tools, a Python
-> client that speaks the real protocol, and an agent loop where Claude decides
-> which tools to run — with every call shown in the app as it happens.
+> **What works end to end:** the RAG pipeline, the tutor, the learning channel, an MCP
+> server with five tools and an agent loop on Claude *and* Ollama, registration and
+> login, a free tier, model export as JSON and as a runnable Ollama `Modelfile`, backup
+> and restore, and the whole thing in Docker.
 >
-> What is not finished: Ollama cannot call tools yet (Claude can), there is no
-> sign-up screen, and it is not hosted anywhere public — it runs locally, and in
-> Docker, on your own machine. See *Not working yet* below — nothing there is
-> hidden.
->
-> Expect things to change. There are no migrations and no rate limiting yet.
+> **What does not:** it is not hosted anywhere public, there is **no rate limiting**,
+> there are **no database migrations**, and nobody has clicked several of the newest
+> screens. See *Not working yet* and *Known limits* — nothing is hidden there.
 
 ---
 
@@ -50,8 +64,13 @@ uv run fastapi dev app/main.py      # API on http://localhost:8000
 cd web && npm install && npm run dev # UI on http://localhost:3000
 ```
 
-There is no public sign-up. The accounts are created on first startup from `.env` —
-see `.env.example` for what to set.
+**Create an account on the sign-in page**, or use the admin account created on first
+startup from `.env` — see `.env.example` for what to set. Registration can be closed with
+`OPEN_REGISTRATION=false` on a deployment that has no rate limiting yet.
+
+A fresh install seeds itself with six lessons on embeddings, RAG, chunking, vector search,
+tool calling and MCP — so recall, the tool trace and both downloads work on the first
+visit rather than showing an empty room.
 
 ### Or run the whole thing in Docker
 
@@ -92,6 +111,8 @@ Runs on `http://localhost:8000`. Interactive docs at `/docs`.
 | Method | Path | Auth | What it does |
 |---|---|:--:|---|
 | `GET` | `/health` | – | Is the app alive, and did the vector extension load |
+| `POST` | `/api/v1/users/signup` | – | **Create an account.** The only unauthenticated write |
+| `GET` | `/api/v1/public/signin-info` | – | What the sign-in page shows before anyone is signed in |
 | `POST` | `/api/v1/login/access-token` | – | Sign in (the `username` field is your email) |
 | `GET` | `/api/v1/login/test-token` | ✓ | Check a token is still valid |
 | `GET` | `/api/v1/users/` | admin | List users |
@@ -115,7 +136,13 @@ Runs on `http://localhost:8000`. Interactive docs at `/docs`.
 | `POST` | `/api/v1/tutor/recall` | ✓ | Answer from your own lessons only |
 | `GET` | `/api/v1/tutor/stats` | ✓ | How many lessons and topics your model holds |
 | `GET` | `/api/v1/tutor/model/export` | ✓ | Download your model as a JSON file |
+| `GET` | `/api/v1/tutor/model/modelfile` | ✓ | Download a **runnable** Ollama `Modelfile` built from your lessons |
 | `POST` | `/api/v1/tutor/model/import` | ✓ | Load a model file back in |
+| `POST` | `/api/v1/tutor/learn/similar` | ✓ | What in your own model resembles a passage — over the learning index |
+| `POST` | `/api/v1/embeddings/` | ✓ | Embed a list of strings and see the vectors |
+| `GET` | `/api/v1/embeddings/models` | ✓ | Local models that can embed — asked by **capability**, not guessed from the name |
+| `GET` | `/api/v1/quota/` | ✓ | What you have used of the free tier, and what is left |
+| `GET` | `/api/v1/admin/activity` | admin | Sign-ups, sign-ins, uploads and lessons — per account |
 | `GET` | `/api/v1/providers/` | ✓ | Which models you can currently choose from |
 | `GET` | `/api/v1/keys/anthropic` | ✓ | Do you have a key on file, and does the app have one of its own |
 | `PUT` | `/api/v1/keys/anthropic` | ✓ | Hand over your own Anthropic key — checked, hashed, plaintext dropped |
@@ -155,29 +182,14 @@ Stated plainly, because some of it is visible in the app and would otherwise loo
 
 | Feature | What you see | Why |
 |---|---|---|
-| **Tools with Ollama** | The checkbox works only with Claude | Claude can call tools; the Ollama path is not written yet. Picking Ollama with tools on returns a clear message rather than failing quietly. |
-| **Download / upload your model** | No button anywhere | The API works and is tested, but the frontend does not reach it yet. For now it is usable only with the API directly. |
-| **Delete a document** | No button anywhere | Same: `DELETE /api/v1/documents/{id}` works, the UI does not offer it. |
-| **Managing users** | No screen at all | User accounts are created from `.env` at startup. There is no sign-up page and no admin screen. |
+| **Delete a document** | No button | `DELETE /api/v1/documents/{id}` works; the UI does not offer it. |
+| **Admin screens** | None | There is registration and login, but no screen for managing other people's accounts. `GET /admin/activity` answers *"is anyone using this"* over HTTP or from a script. |
+| **Rate limiting** | Nothing stops you | The most important gap on this page. A free tier limits what **one account** can do; nothing limits how many accounts appear. |
+| **Migrations** | — | Schema comes from `create_all`, which adds missing *tables* and never missing *columns*. Fine at this scale, and the reason `User` has no timestamp. |
+| **Hosting** | Runs on your machine | Nothing is deployed publicly. It runs locally and in Docker; a Cloudflare tunnel makes it reachable when wanted. |
 
-Also missing, and planned: Ollama tool calling, a sign-up screen with federated
-login, rate limiting, and deployment.
-
-**The channel between the browser and the model is built, and nothing calls it
-yet.** The design is that the front end drives the work rather than merely
-displaying it: pieces of learning travel up as they happen, each is embedded on
-arrival, and what comes back is the state of the model — held in React context,
-which is where the model is assembled. All of that exists — `POST /tutor/learn`,
-the `learning_stream` sink, the `model` slice and its `learn()` action — but no
-page has been wired to it, so today the tutor still records a finished exchange
-afterwards. Connecting the two is the next piece of work, not a missing one.
-
-**And the corpus is not yet a tool.** What you are taught is searchable material
-now; the intention is that your own model becomes something a model can *call* —
-a tool in its own right, offered over MCP alongside the four that exist, so an
-agent can consult what you have learned rather than only what you have uploaded.
-That is the point where the tutor stops being a feature of this app and starts
-being something you own and can take elsewhere.
+Things listed here in earlier versions that **now work**: Ollama tool calling, the
+sign-up screen, both model downloads, and the browser-to-model learning channel.
 
 ### Using your own Anthropic key
 
@@ -241,6 +253,99 @@ one.
 
 ---
 
+## Where this could go next
+
+Not a wishlist — each of these is a real gap with a known first step. They are roughly
+ordered by how much they would teach someone working through them.
+
+**Retrieval quality, which is where most RAG projects stop too early**
+
+1. **A relevance threshold, or a reranker.** Nearest-neighbour search always returns *k*
+   results, however irrelevant. A cross-encoder reranking the top 20 down to 5 is the
+   standard fix and would make the `grounded` flag mean something.
+2. **Hybrid search.** Vectors miss exact strings — product codes, error numbers, names.
+   BM25 alongside the vector index, fused, is measurably better than either alone.
+3. **Chunking that respects structure.** Fixed 1000-character windows cut through
+   headings and tables. Splitting on document structure changes retrieval more than
+   swapping the embedding model does.
+4. **An evaluation set.** Twenty questions with known-correct passages, scored on every
+   change. Without it, every "improvement" here is a guess — including the ones already
+   made.
+
+**The model layer**
+
+5. **A second embedding provider actually exercised.** `sentence-transformers` is written
+   and has never run; per-width indexes exist to make the swap safe.
+6. **Fine-tuning, honestly framed.** The app already exports training pairs. A LoRA run
+   on a free Colab T4 would produce a real adapter — and the interesting part is
+   measuring how little it helps with *facts*, which is the point.
+7. **Quantisation and local speed.** Why an 8B model takes minutes on a CPU, and what
+   actually changes it.
+
+**Agents and MCP**
+
+8. **The outward transport.** The MCP server is in-process. Mounting Streamable HTTP
+   would let Claude Desktop consult your corpus — blocked on federated identity, which is
+   the honest reason it is not built.
+9. **Multi-step tool planning.** The loop is capped at five rounds and has no memory
+   between questions.
+10. **Tool-use evaluation.** Eighteen of thirty local models here can call tools. Which
+    call them *well* is a different question, and nobody measured it.
+
+**Engineering**
+
+11. **Rate limiting.** The largest real gap.
+12. **Migrations**, the moment any table needs a new column.
+13. **Ingestion progress.** The streaming sink already yields a running count that nothing
+    reads; the browser channel that would carry it now exists.
+14. **Scheduled backups.** The script and a verified restore exist; nothing calls them.
+15. **Federated login**, which unblocks 8.
+
+---
+
+## Where ML writing bends the truth — and what this repo does instead
+
+A learning project is a good place to be exact about things the field is currently
+casual about. Each of these was measured here, not repeated from somewhere else.
+
+**"Custom model" usually means a prompt.** Deriving an embedding model with a `SYSTEM`
+prompt was measured against its base: *identical vectors, maximum difference 0.0.* An
+embedding model has no generation step to read a prompt. The route says so in its
+response (`note_affects_vectors: false`) rather than letting a "custom model" badge imply
+otherwise.
+
+**"Fine-tuned" usually means prompted.** The downloadable `Modelfile` carries your lessons
+in the base model's *context*. It runs, it answers in your material, and it changes no
+weights. The file's own header says this in the first paragraph. *Fine-tuning teaches
+style; retrieval teaches knowledge* — and conflating them is how demos overpromise.
+
+**"Grounded" usually means "the search returned something."** It does here too, and the
+README says so. A `vec0` KNN returns the *k* nearest vectors whether or not any of them
+are relevant. Distance is not relevance, and a green badge that only means "a query ran"
+is a badge worth distrusting.
+
+**Two embedding spaces are not comparable, and merging them looks fine.** Change the
+embedding model and old documents become unreachable — not worse, unreachable. This app
+marks them rather than quietly returning them, because a ranking mixed across two models
+is meaningless *and* plausible, which is the worst combination available.
+
+**Benchmarks are usually run once.** The numbers here — 475 MB peak while embedding, 18
+of 30 local models able to call tools, 0.51 retrieval distance on a seeded question — were
+each produced by running the thing and reading the output, and the command is in the
+repository.
+
+**"It works" usually means "the tests pass."** A chunking bug in this codebase once turned
+a 286-character document into 201 chunks and passed every test. So `/status` **probes**
+capabilities rather than listing them, and where something is claimed but unverified, it
+says so.
+
+**Refusals are usually hidden.** `/status` has a fourth state — *explored, refused* — for
+capabilities examined and deliberately not built, with the reason. A tool that makes its
+own LLM call, a search that merges embedding spaces, an `owner_id` parameter a model could
+choose. Building the easy version of any of them would have made the rest mean less.
+
+---
+
 ## How it is built
 
 | Part | Choice |
@@ -254,7 +359,7 @@ one.
 | Types | `pyright` strict, TypeScript strict |
 
 ```bash
-uv run pytest      # 190 tests, no network needed
+uv run pytest      # 272 tests, no network needed
 uv run pyright     # strict type checking
 ```
 
