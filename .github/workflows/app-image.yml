@@ -1,0 +1,156 @@
+# Build the *app* image and push it to GHCR.
+#
+# The sibling of ollama-base.yml, and the second half of the pair. That one
+# publishes Ollama plus the embedding model, once a month; this one publishes
+# the app on top of it, whenever the code changes.
+#
+# **Why this exists at all.** Until now nothing built the app image except a
+# host doing it for itself — Hugging Face from source, or this laptop through
+# compose. That made the image a by-product of a deploy rather than a thing in
+# its own right. Jelena, 2026-08-02: *"Maybe this development will [be] gone in
+# the wind but somehow that docker is kept there for future."* A published,
+# tagged, public image is exactly that: it outlives the branch it was built
+# from, and it can still be pulled and run years after nobody remembers how the
+# source was arranged.
+#
+# It also makes the fly.io deploy simpler and cheaper. `fly deploy --image
+# ghcr.io/...` skips fly's remote builder entirely: no source upload, no rebuild
+# in their region, and the thing that runs there is byte-for-byte what was
+# tested here.
+#
+# GHCR rather than Docker Hub, for the reason in ollama-base.yml and one more:
+# GITHUB_TOKEN already writes to GHCR, so no credential is stored anywhere. The
+# `CR_PAT` route in MANUAL-GITHUB.md is for a laptop, and needs no place here.
+#
+# **The package is private until you make it public** — same one-time step as
+# the base image, and the same failure if it is skipped.
+
+name: App image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Extra tag to publish alongside `latest` (e.g. v0.1.0)
+        default: ""
+  push:
+    branches: [main]
+    # Only when something that lands *in the image* changes. Documentation and
+    # the working notes do not rebuild a 1.3 GB image.
+    paths:
+      - "app/**"
+      - "web/**"
+      - "deploy/start.sh"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/app-image.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/mcp-py
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Free up runner disk
+        # The Ollama base is ~1.3 GB before this image adds anything, and the
+        # node build stage is another few hundred MB that never ships.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Work out the tags
+        id: tags
+        run: |
+          {
+            echo "list<<EOF"
+            echo "${IMAGE}:latest"
+            echo "${IMAGE}:${GITHUB_SHA::7}"
+            [ -n "${{ inputs.tag }}" ] && echo "${IMAGE}:${{ inputs.tag }}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        # Loaded into the local daemon rather than pushed, so the checks below
+        # run against the exact image that would be published.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ${{ steps.tags.outputs.list }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Size
+        run: |
+          docker image inspect "${IMAGE}:latest" --format '{{.Size}}' \
+            | awk '{printf "final image: %.0f MB\n", $1/1024/1024}'
+
+      - name: Verify it boots and can embed
+        # Never push an image nobody has started. The equivalent check on the
+        # base image is what keeps a broken embedder from reaching a Space and
+        # showing up, much later, as an upload stuck on "processing".
+        #
+        # MANAGE_OLLAMA=1 so the container runs its own model server, as a
+        # server would. ENVIRONMENT=local so config.py does not refuse to boot
+        # on the placeholder secret this job deliberately does not have.
+        run: |
+          docker run -d --name probe \
+            -e ENVIRONMENT=local \
+            -e MANAGE_OLLAMA=1 \
+            -e SECRET_KEY=ci-not-a-real-secret \
+            -p 7860:7860 \
+            "${IMAGE}:latest"
+
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:7860/ >/dev/null 2>&1; then
+              echo "web answered after ${i}0s"; break
+            fi
+            sleep 10
+            [ "$i" = 60 ] && { docker logs probe; exit 1; }
+          done
+
+          docker exec probe curl -fsS http://127.0.0.1:8000/health
+          echo
+          docker exec probe curl -fsS http://127.0.0.1:11434/api/embed \
+            -d '{"model":"nomic-embed-text","input":["ci probe"]}' \
+            | head -c 120
+          echo
+          docker logs probe | grep '\[start\]'
+          docker rm -f probe
+
+      - name: Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          cache-from: type=gha
+
+      - name: Remember to make the package public
+        run: |
+          echo "Published:"
+          echo "  ${IMAGE}:latest"
+          echo "  ${IMAGE}:${GITHUB_SHA::7}"
+          echo
+          echo "GHCR packages are PRIVATE by default. Until this one is public,"
+          echo "'fly deploy --image' and anonymous 'docker pull' both fail with"
+          echo "a 'denied' that reads like a typo in the image name:"
+          echo "  github.com?tab=packages -> mcp-py -> Package settings -> Change visibility -> Public"
