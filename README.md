@@ -381,6 +381,22 @@ capabilities examined and deliberately not built, with the reason. A tool that m
 own LLM call, a search that merges embedding spaces, an `owner_id` parameter a model could
 choose. Building the easy version of any of them would have made the rest mean less.
 
+**And a design is often explained by naming what some other product cannot do.** It is an
+easy sentence to write and there is always a better one. Every page here states its own
+constraint positively instead: *"embedding runs locally, on your own machine"* carries
+everything the comparative version carried, and belongs entirely to this system.
+
+Three reasons that is the stronger writing rather than merely the politer writing.
+Borrowing authority from another product's absence is weaker than showing your own work.
+It reads defensive even when it is accurate. And it **ages badly** — gaps close, and then
+your documentation is wrong about somebody else's system while claiming to be careful.
+
+Worth separating, because it is easy to overcorrect: this is about how a fact is *stated*,
+not about pretending not to know it. Knowing exactly what each provider supports is what
+makes the code correct — this app asks a model whether it can call tools rather than
+assuming, and that question has a real answer. What does not belong in writing is the
+answer framed as a point being scored.
+
 ---
 
 ## How it is built
