@@ -53,6 +53,26 @@ primary_region = "fra"
   DATA_DIR = "/data"
   SQLITE_PATH = "/data/rag.db"
 
+  # The free tier, on. Every account gets 3 uploads and 10 lessons, then a
+  # message explaining why and who to write to. This is the only thing between
+  # a public URL and unbounded embedding on a machine Jelena pays for.
+  QUOTA_ENABLED = "true"
+
+  # Open registration, from day one — Jelena's decision, 2026-08-02, taken
+  # against my recommendation and after the risk was put to her.
+  #
+  # The risk, recorded so it is not rediscovered as a surprise: **there is no
+  # rate limiting anywhere in this app.** The quota bounds what one account can
+  # do; nothing bounds how many accounts appear. Someone determined could
+  # register in a loop and collect an allowance each time.
+  #
+  # What makes it a reasonable bet rather than a reckless one: the free
+  # allowance is small, embedding is local rather than a paid API call, Claude
+  # is on the visitor's own key, and `GET /admin/activity` now makes abuse
+  # *visible* rather than something discovered on an invoice. Flip this to
+  # "false" and the door shuts immediately, without a redeploy of anything else.
+  OPEN_REGISTRATION = "true"
+
 # The database and its vector index live in one SQLite file, so this single
 # mount is the entire application state. A volume binds the app to one machine
 # in one region — which is correct here rather than a limitation: SQLite has one
@@ -65,16 +85,23 @@ primary_region = "fra"
   internal_port = 7860
   force_https = true
 
-  # Deliberately NOT scaling to zero, for the trial at least.
+  # Pay per use: the machine sleeps when nothing is asking for it, and fly
+  # starts it again on the next request. Jelena's decision, 2026-08-02, and
+  # the right one for a demo nobody is watching continuously — an always-on
+  # machine bills for every hour whether or not a single person visits.
   #
-  # The container boots in under ten seconds on the laptop (Ollama 1s, API 3s),
-  # so a cold start would not be terrible — but fly has to start the machine
-  # first, and the first thing a visitor to a demo should meet is the app, not a
-  # spinner. Flip auto_stop_machines to "stop" once the demo is not being shown
-  # to anyone, and the machine costs nothing while it sleeps.
-  auto_stop_machines = "off"
+  # What it costs instead: a cold start. The three processes come up in under
+  # ten seconds here (ollama 1s, api 3s, web), and fly's machine start is on
+  # top of that. So the first visitor after a quiet spell waits, and the ones
+  # after them do not.
+  #
+  # **The volume is not covered by this.** A fly volume is billed for the
+  # storage it reserves, continuously, whether the machine is running, stopped
+  # or has never started. Sleeping the machine reduces the compute line and
+  # not the disk line — worth knowing before reading the first invoice.
+  auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
 
   [[http_service.checks]]
     interval = "30s"
