@@ -21,8 +21,26 @@ API_PORT="${API_PORT:-8000}"
 WEB_PORT="${PORT:-7860}"          # Spaces sets $PORT; 7860 is its default
 
 export SQLITE_PATH="${SQLITE_PATH:-${DATA_DIR}/rag.db}"
-export OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}"
 export OLLAMA_MODELS="${OLLAMA_MODELS:-/opt/ollama/models}"
+
+# OLLAMA_HOST is host:port here, never a URL — the checks below build
+# "http://${OLLAMA_HOST}/api/tags" themselves.
+#
+# Both spellings are legitimate and people write both: Ollama's own client
+# libraries take a full URL, the server takes host:port. So a perfectly
+# reasonable OLLAMA_HOST=http://127.0.0.1:11434 in a .env — which is exactly
+# what this project's .env carries, for the Python client that wants it —
+# produced "http://http://127.0.0.1:11434/api/tags", a URL that can never
+# answer, and the container died 60 seconds later saying Ollama was not ready.
+# It looked like a broken model server and was a string.
+#
+# Found on the first real container run, 2026-08-02. Normalise rather than
+# document: the scheme is dropped if present, and a trailing slash with it.
+export OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}"
+OLLAMA_HOST="${OLLAMA_HOST#http://}"
+OLLAMA_HOST="${OLLAMA_HOST#https://}"
+OLLAMA_HOST="${OLLAMA_HOST%/}"
+export OLLAMA_HOST
 
 # The Next.js side talks to FastAPI over loopback. This is the variable that,
 # when wrong, produces a UI that loads and then fails every request.

@@ -22,6 +22,7 @@ from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import CallerAnthropicKey, CurrentUser, SessionDep
+from app.core.config import settings
 from app.models import (
     TUTOR_MODEL_FORMAT,
     TUTOR_MODEL_VERSION,
@@ -300,6 +301,47 @@ async def export_model(
         headers={
             "Content-Disposition": 'attachment; filename="tutor-model.json"'
         },
+    )
+
+
+@router.get("/model/modelfile")
+async def export_modelfile(
+    session: SessionDep,
+    current_user: CurrentUser,
+    base_model: str | None = None,
+) -> Response:
+    """Download the learner's model as a **runnable** Ollama Modelfile.
+
+    Tier 2 of `.claude/rules/PLAN.md` §7. Tier 1 hands the learner a JSON file
+    they cannot do anything with; this one is two commands from a model that
+    answers in their own material:
+
+        ollama create my-model -f Modelfile
+        ollama run my-model
+
+    It is a *prompted* model, not a fine-tuned one, and the file's own header
+    says so — the lessons ride in the base model's context. That takes seconds
+    and no GPU. A real fine-tune is tier 3, produces a different object, and
+    cannot run on this hardware.
+
+    `base_model` is the learner's, not this app's. It defaults to the
+    configured Ollama chat model, is never validated against what *this*
+    machine holds, and is never downloaded here: `ollama create` resolves it on
+    the learner's own machine, which is the only place it has to exist.
+    """
+    export = await tutor_model.build_export(
+        session=session, owner_id=current_user.id
+    )
+    content = tutor_model.build_modelfile(
+        export=export,
+        base_model=(base_model or settings.OLLAMA_CHAT_MODEL).strip(),
+    )
+    return Response(
+        content=content,
+        # text/plain, not an invented type: a Modelfile is a text file, and a
+        # learner who opens it instead of saving it should be able to read it.
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="Modelfile"'},
     )
 
 

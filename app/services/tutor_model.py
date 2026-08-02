@@ -289,3 +289,133 @@ async def apply_import(
         indexed_chunks=chunks,
         embedding_model=get_embedding_provider().model,
     )
+
+
+# ──────────────────────── tier 2: the runnable Modelfile ────────────────────
+
+# How many exchanges become MESSAGE pairs.
+#
+# A ceiling, not a page. Every pair is primed into the base model's context on
+# every turn, so a Modelfile carrying three hundred lessons produces a model
+# that is slow, expensive in context, and worse at answering than one carrying
+# forty. Newest first, because recent study is what a learner is most likely to
+# be asking about.
+MAX_MODELFILE_PAIRS = 40
+
+# Answers are prose and can be long. A base model's context is finite and
+# shared with everything else in the file.
+MAX_ANSWER_CHARS = 1200
+
+
+def _quote_block(text: str) -> str:
+    """Wrap text for a Modelfile triple-quoted argument.
+
+    The one thing that can break the file is a literal `\"\"\"` inside the
+    content, which would close the block early and turn the rest of a lesson
+    into Modelfile syntax. Ollama's parser has no escape for it, so the
+    sequence is rewritten rather than escaped — three double quotes become
+    three single ones, which reads the same to a person and cannot terminate
+    the block.
+    """
+    return '"""' + text.replace('"""', "'''") + '"""'
+
+
+def build_modelfile(
+    *,
+    export: TutorModelExport,
+    base_model: str,
+    max_pairs: int = MAX_MODELFILE_PAIRS,
+) -> str:
+    """Render the learner's corpus as an Ollama Modelfile.
+
+    Tier 2 of `.claude/rules/PLAN.md` §7, and the honest half of "download your
+    model": tier 1 is a JSON file the learner cannot *do* anything with, and
+    this is two commands away from a model that answers in their own material.
+
+        ollama create my-model -f Modelfile
+        ollama run my-model
+
+    **It is a prompted model, not a fine-tuned one**, and the file says so in
+    its own header rather than leaving the learner to discover it. The lessons
+    ride in the context as SYSTEM text and MESSAGE pairs; no weights change,
+    nothing is trained, and it works on a laptop with no GPU in seconds. That
+    honesty is worth more here than a button that overclaims — a real
+    fine-tune is tier 3, needs a GPU this project does not have, and produces
+    a *different object*.
+
+    The base model is the learner's choice and is not downloaded by this app:
+    the file names it, and `ollama create` resolves it on their machine.
+    """
+    lessons = [
+        lesson
+        for lesson in export.lessons
+        if lesson.question.strip() and lesson.answer.strip()
+    ]
+    # Newest first — `build_export` orders oldest-first for a readable archive,
+    # which is the wrong end to truncate from when the cap bites.
+    lessons = list(reversed(lessons))
+    included = lessons[:max_pairs]
+    dropped = len(lessons) - len(included)
+
+    topics = export.topics or ["(none recorded)"]
+    topic_line = ", ".join(topics[:30])
+    if len(topics) > 30:
+        topic_line += f", and {len(topics) - 30} more"
+
+    system = (
+        "You are a learner's own model. Everything you know here was taught to "
+        "this person, one lesson at a time, and recorded as it was taught.\n\n"
+        f"Topics studied: {topic_line}.\n\n"
+        "Answer from the lessons you carry. When you are asked about something "
+        "outside them, say plainly that it was not part of what this learner "
+        "studied, and name what was — that is more useful to someone studying "
+        "than a confident guess."
+    )
+
+    header = [
+        "# The learner's model — tier 2, a runnable Ollama model.",
+        "#",
+        "#     ollama create my-model -f Modelfile",
+        "#     ollama run my-model",
+        "#",
+        "# What this is, said plainly: a PROMPTED model, not a fine-tuned one.",
+        "# The lessons below travel in the context window of the base model named",
+        "# on the FROM line. No weights were changed and nothing was trained — so",
+        "# it takes seconds, needs no GPU, and the base model's own knowledge is",
+        "# still in there underneath. Fine-tuning teaches style; retrieval and",
+        "# prompting teach knowledge. This is the second kind.",
+        "#",
+        f"# Exported:      {export.exported_at.isoformat()}",
+        f"# Lessons held:  {len(included)} of {export.lesson_count}",
+    ]
+    if dropped:
+        header += [
+            f"# Left out:      {dropped} older lessons — every pair is primed on",
+            "#                every turn, so the file is capped at the most recent."
+            f" Full record: tutor-model.json ({export.lesson_count} lessons).",
+        ]
+    header += [
+        f"# Embedded with: {export.indexed_with.embedding_model}"
+        f" ({export.indexed_with.embedding_dimensions}d) — for reference only;"
+        " this file carries no vectors.",
+        "",
+    ]
+
+    lines = header + [
+        f"FROM {base_model}",
+        "",
+        f"SYSTEM {_quote_block(system)}",
+        "",
+    ]
+
+    for lesson in included:
+        answer = lesson.answer.strip()
+        if len(answer) > MAX_ANSWER_CHARS:
+            answer = answer[:MAX_ANSWER_CHARS].rstrip() + " […]"
+        if lesson.term:
+            lines.append(f"# {lesson.term}")
+        lines.append(f"MESSAGE user {_quote_block(lesson.question.strip())}")
+        lines.append(f"MESSAGE assistant {_quote_block(answer)}")
+        lines.append("")
+
+    return "\n".join(lines)
