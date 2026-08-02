@@ -99,6 +99,13 @@ services:
       MANAGE_OLLAMA: "1"
       DEFAULT_CHAT_PROVIDER: claude
       SQLITE_PATH: /data/rag.db   # same precedence trap as above — .env would win
+      # And the same trap again, which is how the first container run died.
+      # .env carries OLLAMA_HOST=http://127.0.0.1:11434 — correct for the Python
+      # client, wrong for start.sh, which builds "http://${OLLAMA_HOST}/api/tags"
+      # and got a doubled scheme. start.sh now strips it, so this line is belt
+      # and braces rather than the fix; it is here because the value this
+      # service wants should be stated where the service is defined.
+      OLLAMA_HOST: 127.0.0.1:11434
 
 volumes:
   rag-data:
