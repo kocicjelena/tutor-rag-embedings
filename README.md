@@ -1,16 +1,4 @@
-# mcp-py — a tutor that builds a model of what you have learned
-
-**Ask it to explain something. It teaches you, embeds each piece of the answer as it
-arrives, and indexes it — so your next question can be answered from your own material
-instead of from the open internet.** What accumulates is a corpus you own: searchable by
-meaning rather than by keyword, exportable as a file, and runnable on your own machine as
-an Ollama model.
-
-Upload documents too, and they join the same index. Every answer cites the passages it
-used, and **you choose who writes it — a local Ollama model or Claude — per question.**
-
-Embedding is always local. Anthropic ships no embeddings API, so the vectors are produced
-on your machine by Ollama, whichever model answers.
+# AI tutor answers, embedded and indexed — a model built from your lessons and your own documents, registered as a tool through an internal MCP server and client
 
 ### Why this repository might interest you
 
@@ -51,7 +39,7 @@ async Python throughout.
 - **Python 3.11+** and [`uv`](https://docs.astral.sh/uv/)
 - **Node 20+**
 - **[Ollama](https://ollama.com)**, running locally — this does the embedding, and it is
-  required. Anthropic does not offer an embeddings API, so this part is always local.
+  required. Embedding always runs on your own machine.
 - An **Anthropic API key**, optional — only if you want Claude as the answering model.
 
 ```bash
@@ -208,8 +196,8 @@ it.
 
 ### Changing the embedding model
 
-Embedding is always local — Anthropic has no embeddings API — but *which* local
-model is yours to choose: Ollama by default, or sentence-transformers with
+Embedding is always local, and *which* local model is yours to choose:
+Ollama by default, or sentence-transformers with
 `uv sync --extra local-embed` (~2 GB of torch, which is why it is optional).
 
 Switching does not corrupt anything. Each vector width gets its own index, so
