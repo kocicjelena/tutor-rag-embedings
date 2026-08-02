@@ -12,7 +12,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
 from app.core.db import SessionLocal
 from app.models import Document, DocumentPublic, DocumentsPublic, Message
-from app.services import ingest_stream
+from app.services import ingest_stream, quota
 from app.services.providers import ProviderUnavailableError, get_embedding_provider
 
 logger = logging.getLogger(__name__)
@@ -132,6 +132,12 @@ async def upload_document(
     description: str | None = None,
 ) -> DocumentPublic:
     """Upload text, markdown, CSV, or PDF. Embedding runs in the background."""
+    # The free tier, checked before the file is read rather than after. A
+    # visitor who is over the limit should not have 10 MiB pulled into memory
+    # and a document row created first — and they should be told why in the
+    # same breath, which is what the 402 carries.
+    await quota.require_upload_allowance(session, current_user)
+
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(
             415,

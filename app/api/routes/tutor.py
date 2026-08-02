@@ -49,7 +49,7 @@ from app.schemas.events import (
     ProviderEvent,
     TokenEvent,
 )
-from app.services import learning_stream, rag, tutor_model
+from app.services import learning_stream, quota, rag, tutor_model
 from app.services.providers import (
     ProviderUnavailableError,
     get_chat_provider,
@@ -101,6 +101,7 @@ def _recall_prompt(context: str) -> str:
 @router.post("/teach")
 async def teach(
     *,
+    session: SessionDep,
     current_user: CurrentUser,
     anthropic_key: CallerAnthropicKey,
     body: TutorTeachRequest,
@@ -109,6 +110,12 @@ async def teach(
 
     The client records the completed exchange via POST /tutor/interactions.
     """
+    # Checked here as well as at the recording step, and this is the kinder of
+    # the two places: a learner who is out of lessons should be told before an
+    # answer streams in front of them, not after they have read it and tried to
+    # keep it. `session` exists on this route for no other reason.
+    await quota.require_lesson_allowance(session, current_user)
+
     provider = get_chat_provider(body.provider, api_key=anthropic_key)
     model = resolve_model(provider, body.model)
     system = _teach_prompt(body.term, body.mode, body.goals)
@@ -263,6 +270,11 @@ async def record_interaction(
     seeding call — so a lesson enters the corpus exactly one way, however it
     arrived.
     """
+    # The write that actually costs an embedding, so this is the check that has
+    # to hold even if a client skipped /teach or called this route directly.
+    # /teach checks too, but only so the refusal arrives before the answer does.
+    await quota.require_lesson_allowance(session, current_user)
+
     doc, count = await tutor_model.record_lesson(
         session=session,
         owner_id=current_user.id,
