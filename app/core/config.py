@@ -193,6 +193,30 @@ class Settings(BaseSettings):
     # honest sequence is rate limiting first, then leave this on.
     OPEN_REGISTRATION: bool = True
 
+    # ── The free tier ────────────────────────────────────────────────────
+    #
+    # Off by default, and that default is the important part: local
+    # development, the test suite and Jelena's own laptop must never be gated.
+    # Turn it on where a stranger can reach the app and nowhere else.
+    QUOTA_ENABLED: bool = False
+
+    # What the limits count is deliberately what *costs money to host*, never
+    # what demonstrates the app. Reading, searching, recall, the MCP catalogue,
+    # /status and both model downloads are unlimited and always will be — this
+    # is a showcase before it is a product, and a wall in front of the parts
+    # worth showing would hide the work rather than sell it.
+    FREE_UPLOADS: int = 3
+    FREE_LESSONS: int = 10
+
+    # Shown to a person who has run out, so the message ends with a human
+    # rather than a dead end.
+    #
+    # **A setting, not a literal.** Hard-coding an address would put Jelena's
+    # personal email into a public Docker image, a public GHCR package and a
+    # public repository at once. It lives in .env, which is gitignored, and the
+    # message simply omits the sentence when it is unset.
+    SUPPORT_EMAIL: str = ""
+
     @model_validator(mode="after")
     def _check_secrets(self) -> Self:
         """Fail fast on placeholder secrets outside local development.
