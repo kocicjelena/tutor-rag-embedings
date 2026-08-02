@@ -299,7 +299,7 @@ CAPABILITIES: list[Capability] = [
         key="embedding",
         name="Embedding",
         area="rag",
-        summary="Local, always. Anthropic ships no embeddings API",
+        summary="Local, always — your text is vectorised on your own machine",
         declared="built",
         doc=".claude/rules/VECTORS.md",
         probe=_probe_embedding,
@@ -625,14 +625,17 @@ CAPABILITIES: list[Capability] = [
     ),
     Capability(
         key="x-claude-embeddings",
-        name="A \"Claude embeddings\" provider",
+        name="Embedding chosen per request",
         area="llm",
-        summary="Refused — it does not exist",
+        summary="Refused — it would corrupt the index rather than offer a choice",
         detail=(
-            "Anthropic ships no embeddings endpoint. This is why there are two "
-            "provider protocols rather than one, and why only *generation* is "
-            "user-selectable. Recorded because it is the single most reasonable-"
-            "sounding thing to add, and it cannot be added."
+            "Letting the caller pick an embedding model per question is the "
+            "single most reasonable-sounding thing to add here, and it is the "
+            "one that quietly breaks retrieval. Vectors from two models are not "
+            "comparable, so a corpus embedded under a mixture of them ranks "
+            "plausibly and means nothing. Embedding is therefore configured at "
+            "deploy and never per request — which is why there are two provider "
+            "protocols rather than one, and why only *generation* is switchable."
         ),
         declared="exploring",
         doc=".claude/rules/DECISIONS.md",

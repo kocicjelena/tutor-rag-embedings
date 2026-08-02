@@ -87,8 +87,11 @@ handle cannot be passed by accident.
 
 1. **No OpenAI.** `openai`, `pgvector`, and `psycopg` were removed deliberately. Only Ollama and
    Claude are permitted providers. Do not reintroduce them.
-2. **Anthropic ships no embeddings API.** Embedding is Ollama-only and is *not* user-selectable;
-   only *generation* is. Don't add a "Claude embeddings" provider — it does not exist.
+2. **Embedding is local, and is not user-selectable.** Only *generation* is. Embedding runs
+   through `EmbeddingProvider` (Ollama by default), configured at deploy and never chosen per
+   request — vectors from two models are not comparable, so a per-request choice would corrupt
+   retrieval rather than offer one. This is why there are two provider protocols rather than
+   one. Claude is a `ChatProvider` only; do not add it as an embedding provider.
 3. **`vectors.search()` takes `owner_id` as a required positional argument.** Never add an
    overload that makes it optional. This is what prevents the cross-tenant leak that existed in
    the original code — see `docs/jelena/ORIGINAL_BRIEF.md` history and `.claude/rules/other_agent.md` finding #1.
