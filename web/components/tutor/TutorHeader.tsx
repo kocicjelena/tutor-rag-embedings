@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useContextActions } from "@/context/GlobalContext";
 import { AI_TERMS } from "./lib/constants";
 import { getProficiencyClassName } from "./lib/modelAnalysis";
 import type { LearningModel, TutorMode } from "./lib/types";
@@ -25,6 +26,8 @@ export function TutorHeader({
   indexedLessons,
   onDownloadModel,
 }: Props) {
+  const { signOut } = useContextActions();
+
   return (
     <header className="masthead">
       <div>
@@ -42,6 +45,18 @@ export function TutorHeader({
         <Link href="/tutor" className="active">
           Tutor
         </Link>
+        {/* Sign-out lived only on `/`, so the only way out from here was to
+            navigate away first. It reads the store directly rather than taking
+            a prop — the session is global, and threading it down would be the
+            same wire the other four removed ones were. */}
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => void signOut()}
+          style={{ padding: "4px 10px", fontSize: 13 }}
+        >
+          Sign out
+        </button>
       </nav>
 
       <div className="row">
