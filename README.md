@@ -296,11 +296,26 @@ ordered by how much they would teach someone working through them.
 A learning project is a good place to be exact about things the field is currently
 casual about. Each of these was measured here, not repeated from somewhere else.
 
-**"Custom model" usually means a prompt.** Deriving an embedding model with a `SYSTEM`
-prompt was measured against its base: *identical vectors, maximum difference 0.0.* An
-embedding model has no generation step to read a prompt. The route says so in its
-response (`note_affects_vectors: false`) rather than letting a "custom model" badge imply
-otherwise.
+**A prompt on an embedding model changes nothing. Changing the model changes everything.**
+
+Deriving an embedding model with a `SYSTEM` prompt was measured against its base here:
+*identical vectors, maximum absolute difference 0.0.* An embedding model has no
+generation step to read a prompt, so the prompt is stored and read by nothing. The route
+says exactly that in its reply — `note_affects_vectors: false` — rather than letting a
+"custom model" badge imply a difference that is not there.
+
+The opposite is where the real risk sits, and it is a property of **embedding models
+themselves, not of this app**. Swap the embedding model and your results change: different
+vectors, different nearest neighbours, different passages retrieved, a different answer to
+the same question. No application can paper over that — vectors from two models are not
+comparable, so material indexed under the old one becomes *unreachable* rather than merely
+worse.
+
+Which is why the version matters as much as the name. `nomic-embed-text:v1.5` is a
+promise; `nomic-embed-text` is whatever that tag points at today. Pinning it means an
+upstream release cannot silently change the numbers underneath an index that has no way
+to survive the change — and if you do change it deliberately,
+`uv run python -m app.scripts.reembed` is the way back.
 
 The downloadable `Modelfile` carries your lessons in the base model's *context*. It runs,
 it answers in your material, and it changes no weights. The file's own header says this in
