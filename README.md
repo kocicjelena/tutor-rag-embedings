@@ -17,9 +17,11 @@ async Python throughout.
 
 ### What it is for
 
-Not a product, and not a thing to be built for months. It exists so you can **feel how
-much retrieval and embeddings actually change an answer** — by running it on your own
-material, in an afternoon.
+**Reproducible, but in a different sense: you are not training an ML model here.** Point
+this project at a different model and it becomes your own development and your own
+product. What you accumulate by chatting in the browser *is* the model — you watch it
+change as you use it, and you can test every change you make. So you can **feel how much
+retrieval and embeddings actually change an answer.**
 
 Ask a question with an empty corpus and you get a general answer. Teach the tutor two
 things, upload one document, ask again, and the answer arrives grounded in your own words
