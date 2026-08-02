@@ -90,8 +90,10 @@ export default function ProviderPicker({
       <p className="hint" style={{ marginTop: 12 }}>
         Embeddings always run locally via{" "}
         <span className="mono">{providers.embedding_model}</span> (
-        {providers.embedding_dimensions}-dim). Anthropic has no embeddings API,
-        so only generation is switchable.
+        {providers.embedding_dimensions}-dim), so your text is vectorised on
+        this machine. Only generation is switchable: vectors from two different
+        models cannot be compared, so the embedding model is fixed for the whole
+        index rather than chosen per question.
       </p>
     </div>
   );
