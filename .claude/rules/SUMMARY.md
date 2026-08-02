@@ -26,9 +26,13 @@ the click-by-click deployment manual, and `other_agent.md` is the original
 defect inventory. `docs/SESSIONS.md`, outside the repo entirely, is the short
 readable summary of where the project stands.
 
-Added since: `QUESTION-UNIT.md`, four options with for and against for the one
-decision the learning channel still needs from Jelena — what unit of learning
-travels up it. And `CONTINUE_COMPACT.md`, which is now **the file a new session
+Added since: `RUNBOOK-DOCKER.md`, the practical card for the Docker flow now
+that it has actually been built and run — where the files and the data are, the
+two services and which one you want, stop/start/rebuild, how Ollama runs
+separately as a systemd unit, and the two `.env`-precedence traps that cost the
+first container run. And `QUESTION-UNIT.md`, four options with for and against
+for the one decision the learning channel needed from Jelena — **answered
+2026-08-02: option A, every fragment, noise included.** And `CONTINUE_COMPACT.md`, which is now **the file a new session
 reads first**: where things stand today, what is next, and what is waiting on
 her, kept under two screens by rule. `CONTINUE.md` became the long record behind
 it — the two are split because one document cannot both stay short and keep
