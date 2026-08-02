@@ -5,6 +5,7 @@ import { useContextState } from "@/context/GlobalContext";
 import { LatestInteractionCard } from "./LatestInteractionCard";
 import { LiveModelCard } from "./LiveModelCard";
 import { LearningGoalsCard } from "./LearningGoalsCard";
+import { ModelDownloadCard } from "./ModelDownloadCard";
 import { ModelStatusCard } from "./ModelStatusCard";
 import { TopicMasteryCard } from "./TopicMasteryCard";
 import { TrainingProgressCard } from "./TrainingProgressCard";
@@ -83,6 +84,11 @@ export function TutorSidebar({
         recallUnlocked={recallUnlocked}
         onDownloadModel={onDownloadModel}
       />
+
+      {/* The real artifacts, straight from the corpus on the server. Distinct from
+          ModelStatusCard's own download, which exports the browser's dashboard —
+          proficiency, topic mastery, the vocabulary chart — and not the lessons. */}
+      <ModelDownloadCard stats={stats} />
       <TrainingProgressCard
         learningModel={learningModel}
         stats={stats}

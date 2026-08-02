@@ -286,3 +286,124 @@ async def test_model_routes_require_auth(client: AsyncClient) -> None:
               "lessons": []},
     )
     assert response.status_code == 401
+
+
+# ──────────────────────── tier 2: the Modelfile ────────────────────────
+#
+# The syntax was verified against the real Ollama on 2026-08-02 —
+# `MESSAGE user """..."""` with multiline content and embedded quotes survives
+# `ollama create` and comes back intact from `ollama show --modelfile`. These
+# tests pin the properties that would silently break it, since the suite runs
+# with no Ollama and cannot re-check the parser.
+
+
+async def _modelfile(
+    client: AsyncClient, headers: dict[str, str], **params: str
+) -> str:
+    response = await client.get(
+        "/api/v1/tutor/model/modelfile", headers=headers, params=params
+    )
+    assert response.status_code == 200, response.text
+    return response.text
+
+
+async def test_modelfile_is_runnable_shape(
+    session: AsyncSession, client: AsyncClient
+) -> None:
+    """FROM, SYSTEM, and a MESSAGE pair per lesson — the whole contract."""
+    user = await make_user(session, "mf-shape@example.com")
+    headers = await auth_headers(client, user.email)
+    await _record(
+        client, headers, "Embeddings",
+        "What is an embedding?",
+        "A vector that stands for a piece of text.",
+    )
+
+    content = await _modelfile(client, headers)
+
+    assert "\nFROM llama3.1:8b\n" in content
+    assert "SYSTEM " in content
+    assert 'MESSAGE user """What is an embedding?"""' in content
+    assert 'MESSAGE assistant """A vector that stands for a piece of text."""' in content
+    # The claim that must never quietly disappear: this is a prompted model.
+    assert "PROMPTED model, not a fine-tuned one" in content
+
+
+async def test_modelfile_base_model_is_the_learners_choice(
+    session: AsyncSession, client: AsyncClient
+) -> None:
+    """It is never validated against this machine — it resolves on theirs."""
+    user = await make_user(session, "mf-base@example.com")
+    headers = await auth_headers(client, user.email)
+    await _record(client, headers, "RAG", "What is RAG?", "Retrieval then generation.")
+
+    content = await _modelfile(client, headers, base_model="qwen3:4b")
+    assert "\nFROM qwen3:4b\n" in content
+
+
+async def test_triple_quotes_in_a_lesson_cannot_close_the_block(
+    session: AsyncSession, client: AsyncClient
+) -> None:
+    """The one input that would turn a lesson into Modelfile syntax.
+
+    Ollama has no escape for `\"\"\"` inside a triple-quoted argument, so an
+    answer containing one would end the block early and hand the rest of the
+    text to the parser as instructions. Rewritten, not escaped.
+    """
+    user = await make_user(session, "mf-quotes@example.com")
+    headers = await auth_headers(client, user.email)
+    await _record(
+        client, headers, "Python",
+        'How do I write a docstring?',
+        'Use """triple quotes""" around it.',
+    )
+
+    content = await _modelfile(client, headers)
+
+    body = content.split("MESSAGE assistant", 1)[1]
+    # Exactly one opening and one closing delimiter on that argument — the
+    # lesson's own quotes are gone.
+    assert body.count('"""') == 2, body[:300]
+    assert "'''triple quotes'''" in content
+
+
+async def test_modelfile_is_capped_and_says_so(
+    session: AsyncSession, client: AsyncClient
+) -> None:
+    """Newest first, and the cap is announced rather than silent.
+
+    Truncating from the wrong end would drop the most recent study, and
+    truncating quietly would make an incomplete model look complete.
+    """
+    from app.services import tutor_model
+
+    user = await make_user(session, "mf-cap@example.com")
+    headers = await auth_headers(client, user.email)
+    total = tutor_model.MAX_MODELFILE_PAIRS + 3
+    for i in range(total):
+        await _record(client, headers, f"Topic{i}", f"Question {i}?", f"Answer {i}.")
+
+    content = await _modelfile(client, headers)
+
+    assert content.count("MESSAGE user ") == tutor_model.MAX_MODELFILE_PAIRS
+    assert "Left out:      3 older lessons" in content
+    # Newest kept, oldest dropped.
+    assert f"Question {total - 1}?" in content
+    assert "Question 0?" not in content
+
+
+async def test_modelfile_is_owner_scoped(
+    session: AsyncSession, client: AsyncClient
+) -> None:
+    """Same rule as every other route: one learner's model is their own."""
+    alice = await make_user(session, "mf-alice@example.com")
+    bob = await make_user(session, "mf-bob@example.com")
+    alice_headers = await auth_headers(client, alice.email)
+    bob_headers = await auth_headers(client, bob.email)
+
+    await _record(
+        client, alice_headers, "Secret", "Alice's question?", "Alice's answer."
+    )
+
+    assert "Alice's question?" not in await _modelfile(client, bob_headers)
+    assert "Alice's question?" in await _modelfile(client, alice_headers)
