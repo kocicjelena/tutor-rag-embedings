@@ -84,3 +84,6 @@ docs/ops/
 # .claude/rules/other_agent.md is deliberately NOT listed: it is already tracked, so a rule
 # here would do nothing but mislead. It is excluded from the *public* repo by
 # the sync script instead — see .claude/rules/DEPLOY-HF.md.
+# Next.js incremental build cache. Regenerated on every build, so tracking it
+# means every `npm run build` dirties git status and every commit carries noise.
+web/tsconfig.tsbuildinfo
