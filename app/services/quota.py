@@ -136,22 +136,21 @@ def _explain(what: str, used: int, limit: int, *, recoverable: str | None) -> st
     if recoverable:
         lines += ["", recoverable]
 
-    # Plain text, not markdown. This string is read as-is in a curl response
-    # and in an alert box, so asterisks around "not built yet" would arrive as
-    # asterisks — emphasis that draws the eye to the wrong thing and looks like
-    # a bug in the app rather than a bug in the sentence.
-    lines += [
-        "",
-        "A paid plan with a higher limit is planned, but it is not built yet — "
-        "so there is nothing to buy today, and nothing will ever be charged to "
-        "you without you choosing it.",
-    ]
+    # No mention of a plan, a subscription, or anything "coming soon".
+    #
+    # Jelena's instruction, 2026-08-02, and it is the honest version: payments
+    # are not built and are not going to be, so promising them would be selling
+    # something that does not exist. "Write to a person" is true today and stays
+    # true whatever is decided later — and it cannot expire into a broken
+    # promise the way "a plan is coming" would.
+    #
+    # Plain text, not markdown: this string is read as-is by curl and in an
+    # alert box, so asterisks would arrive as asterisks.
     if settings.SUPPORT_EMAIL.strip():
         lines += [
             "",
-            f"If you need more room now, or you would like to be told when a "
-            f"plan exists, write to {settings.SUPPORT_EMAIL.strip()} — a real "
-            f"person reads it.",
+            f"If you would like to use the app without these limits, write to "
+            f"{settings.SUPPORT_EMAIL.strip()} — a real person reads it.",
         ]
     return "\n".join(lines)
 

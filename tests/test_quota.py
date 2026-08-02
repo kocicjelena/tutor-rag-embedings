@@ -85,8 +85,12 @@ async def test_the_refusal_explains_itself(
     assert "1 of 1" in detail                       # what happened
     assert "costs real money" in detail             # why
     assert "downloading your model" in detail       # what still works
-    assert "not built yet" in detail                # nothing to buy
-    assert "nothing will ever be charged" in detail  # and nobody is billed
+    assert "without these limits" in detail         # what to do about it
+    # No promise of a product that does not exist. Jelena, 2026-08-02:
+    # payments are not built and are not going to be, so the message must
+    # not imply otherwise.
+    for promise in ("planned", "coming soon", "subscription", "upgrade", "buy"):
+        assert promise not in detail.lower(), promise
     assert "help@example.com" in detail             # who to ask
     assert "deleting one" in detail                 # how to recover
 
