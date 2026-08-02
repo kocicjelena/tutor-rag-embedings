@@ -44,10 +44,10 @@ def get_embedding_provider() -> EmbeddingProvider:
     """The single embedding provider.
 
     Configurable (`EMBEDDING_PROVIDER`) but **not selectable per request**:
-    Anthropic has no embeddings API, and vectors from different models are not
-    comparable, so a per-request choice would corrupt retrieval rather than
-    offer one. Changing it in config is a deliberate act with a documented
-    consequence — see `.claude/rules/VECTORS.md` and `app/scripts/reembed.py`.
+    vectors from different models are not comparable, so a per-request choice
+    would corrupt retrieval rather than offer one. Changing it in config is a
+    deliberate act with a documented consequence — see
+    `.claude/rules/VECTORS.md` and `app/scripts/reembed.py`.
     """
     return _embedder
 

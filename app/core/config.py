@@ -75,7 +75,8 @@ class Settings(BaseSettings):
         return f"sqlite+aiosqlite:///{self.sqlite_file}"
 
     # ─── Embeddings ──────────────────────────────────────────
-    # Ollama only: Anthropic does not expose an embeddings endpoint.
+    # Embedding runs locally, through EmbeddingProvider. Set at deploy, never
+    # per request — see registry.get_embedding_provider for why.
     OLLAMA_HOST: str = "http://127.0.0.1:11434"
     # Generous by default: an 8B model on CPU can take several minutes for a
     # long answer, and prompt processing grows with retrieved context. A tight
