@@ -1,0 +1,48 @@
+{
+  "format": "mcp-py/tutor-model",
+  "version": 1,
+  "lessons": [
+    {
+      "term": "Embeddings",
+      "question": "How does a computer compare the meaning of two sentences?",
+      "answer": "It turns each sentence into a list of numbers called a vector, and then compares the vectors instead of the words.\n\nA model trained on a great deal of text learns to place sentences that mean similar things near each other in that number space, even when they share no words at all. \"The cat sat on the mat\" and \"A feline rested on the rug\" have almost nothing in common as strings, but their vectors land close together.\n\nThat is the whole trick, and it is why searching by meaning works where searching by keyword fails. The older approach counted shared words: ask about \"vector representations\" when your notes say \"embeddings\" and it finds nothing, because the overlap is zero. The vectors do not care what you called it.\n\nThe number of dimensions is just how long the list is. nomic-embed-text produces 768 numbers per piece of text. More dimensions means more room to distinguish shades of meaning, at the cost of more storage and slower comparison.",
+      "taught_by_provider": "seed",
+      "taught_by_model": "sample-corpus"
+    },
+    {
+      "term": "Retrieval-Augmented Generation",
+      "question": "What is RAG, and why not just ask the model directly?",
+      "answer": "RAG is two steps. First retrieve: search your own documents for the passages most relevant to the question. Then generate: hand those passages to a language model and ask it to answer using them.\n\nAsking the model directly has three problems that retrieval fixes. The model has never seen your documents, so it cannot know what is in them. It was trained at some point in the past, so it does not know what changed since. And when it does not know something it will often produce a confident, plausible, wrong answer, because producing text is what it does.\n\nGrounding the answer in retrieved passages addresses all three, and adds something better than a fix: the answer can cite where each claim came from, so a reader can check it. An answer you can verify is a different kind of object from an answer you must trust.\n\nWhat RAG does not do is make the model honest by itself. If retrieval returns nothing relevant, a model will still try to be helpful. That is why the prompt has to say, explicitly, to admit a gap rather than guess.",
+      "taught_by_provider": "seed",
+      "taught_by_model": "sample-corpus"
+    },
+    {
+      "term": "Chunking",
+      "question": "Why are documents split up before they are indexed?",
+      "answer": "Because a whole document is the wrong unit for both halves of retrieval.\n\nAn embedding is a fixed-size vector no matter how much text goes in, so embedding a forty-page manual gives you one vector that means \"this is broadly about the manual's subject\". It cannot tell you which paragraph answers your question. Splitting into chunks of roughly a thousand characters gives each passage its own vector and its own chance to be the best match.\n\nThe second reason is the context window. Whatever the model reads has a size limit, and it is shared between your question, the retrieved material and the answer. Sending five relevant paragraphs beats sending one irrelevant chapter.\n\nChunks usually overlap by a couple of hundred characters. Without overlap, a sentence that straddles a boundary is cut in half and neither half means very much on its own. The overlap costs some storage and buys you not losing the answer to an arbitrary cut.",
+      "taught_by_provider": "seed",
+      "taught_by_model": "sample-corpus"
+    },
+    {
+      "term": "Vector search",
+      "question": "How does the search actually find the nearest passages?",
+      "answer": "Your question is embedded with the same model that embedded the documents, and then the index looks for the stored vectors closest to it.\n\n\"Closest\" is a distance in the number space. Smaller distance means more similar. The search returns the k nearest — five, by default — ranked.\n\nTwo consequences are worth knowing because they surprise people.\n\nThe first: the same model, always. Vectors from two different embedding models are not comparable, even if both produce 768 numbers, because each model arranges its space differently. Mixing them gives a ranking that looks perfectly reasonable and means nothing. This is why changing the embedding model makes old documents unsearchable rather than merely worse, and why they get marked instead of quietly returned.\n\nThe second: a nearest-neighbour search always returns something. It gives you the five closest passages even when all five are far away and none of them are about your question. Distance is relative, not a judgement of relevance, so \"it found five results\" is never the same claim as \"it found the answer\".",
+      "taught_by_provider": "seed",
+      "taught_by_model": "sample-corpus"
+    },
+    {
+      "term": "Tool calling",
+      "question": "What does it mean for a model to use tools?",
+      "answer": "It means the model is given a list of functions it may call, and can decide during its answer that it needs one.\n\nInstead of replying with text, it replies with a request: call search_documents with this query. The application runs that function, sends the result back, and the model carries on — perhaps calling another, perhaps answering. The loop repeats until it stops asking.\n\nThe important part is who decides. In plain retrieval the application always searches first, once, with the user's question exactly as typed. With tools the model chooses whether to search, what to search for, and whether one search was enough. Ask \"what have I been taught?\" and plain retrieval embeds that sentence and returns five arbitrary passages, because the question is about the shape of the collection rather than its content. A model with tools calls the one that counts lessons and answers correctly.\n\nThe cost is rounds. Every tool call is another request carrying the whole conversation so far, which is slower and, on a paid model, more expensive. That is why it is a choice rather than the default.",
+      "taught_by_provider": "seed",
+      "taught_by_model": "sample-corpus"
+    },
+    {
+      "term": "Model Context Protocol",
+      "question": "What is MCP for?",
+      "answer": "MCP is a standard way for an application to describe what it can do, in a form a language model can read.\n\nBefore it, every application invented its own wiring, and a model could only use tools someone had hand-connected to it. MCP defines a catalogue: each tool has a name, a description written for a model rather than a person, and a schema saying what arguments it takes. A model asks what is available and gets a real answer.\n\nThe descriptions are the part people underestimate. They are not documentation, they are prompt text — the only thing standing between a model and calling an expensive tool in a loop. Editing them changes behaviour.\n\nThe other thing worth understanding is where identity comes from. A tool's arguments are chosen by the model, so anything in them is untrusted input, however official it looks. If a search tool accepted a user id, any prompt that talked the model into passing a different one would read someone else's material. So the caller is never a parameter: it comes from the authenticated session, and a tool with no session bound to it refuses to run rather than defaulting to anybody.",
+      "taught_by_provider": "seed",
+      "taught_by_model": "sample-corpus"
+    }
+  ]
+}

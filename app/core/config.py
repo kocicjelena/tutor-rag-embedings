@@ -168,6 +168,31 @@ class Settings(BaseSettings):
     def demo_user_enabled(self) -> bool:
         return bool(self.DEMO_USER.strip())
 
+    # Install the sample corpus from `app/seed/` when this deployment has none.
+    #
+    # On by default, and the default is safe because the check is "is the corpus
+    # *empty*", never "top up". On an ephemeral disk it restores the demo after
+    # a rebuild; on a real volume it runs once and then never acts again.
+    #
+    # It matters most where there is no local chat model: on a deployed
+    # instance a visitor cannot make a lesson until they have supplied an
+    # Anthropic key, so without this the tutor, recall and both download
+    # buttons are all empty on a first visit.
+    SEED_ON_STARTUP: bool = True
+
+    # Public self-registration — `POST /api/v1/users/signup`.
+    #
+    # On by default because the app is meant to *issue identity*: a person
+    # registers with an email, the app derives their handle from it, and that
+    # identity is what the tutor and the corpus accumulate. An app where
+    # accounts only come from `.env` cannot do that for anyone but its owner.
+    #
+    # **Turn it off before a public URL that has no rate limiting.** Open
+    # signup with no ceiling is a spam vector: each account is a row, and each
+    # one can upload and embed, which costs CPU whoever pays for Claude. The
+    # honest sequence is rate limiting first, then leave this on.
+    OPEN_REGISTRATION: bool = True
+
     @model_validator(mode="after")
     def _check_secrets(self) -> Self:
         """Fail fast on placeholder secrets outside local development.
