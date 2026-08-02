@@ -1,0 +1,96 @@
+# fly.io — the only file this branch owns.
+#
+# Written by hand rather than by `fly launch`. That command inspects the repo
+# and writes its own fly.toml, offers to attach Postgres and Redis (this app
+# wants neither — SQLite, one writer), picks a machine size of its own, and can
+# deploy before any secret exists. Every one of those is a decision already
+# made here, with a reason, so the generated version would be a step backwards.
+#
+#     fly apps create tutor-rag-embedings
+#     fly volumes create rag_data --size 1 --region fra --app tutor-rag-embedings
+#     fly secrets set SECRET_KEY=… IDENTITY_PEPPER=… FIRST_SUPERUSER=… FIRST_SUPERUSER_PASSWORD=…
+#     fly deploy
+#
+# Secrets BEFORE the first deploy. ENVIRONMENT=production makes config.py
+# refuse to start on a placeholder SECRET_KEY, and deploy/start.sh checks first
+# so the failure is one clear line — but it is still a wasted cycle.
+
+app = "tutor-rag-embedings"
+primary_region = "fra"
+
+# Deploy the image that CI already built and *started*, rather than making
+# fly's remote builder compile it again. Three things follow: no source upload,
+# no rebuild in Frankfurt, and what runs there is byte-for-byte what was
+# verified on the runner and on the laptop.
+#
+# It must be PUBLIC on GHCR, or fly gets a `denied` that reads like a typo in
+# the image name. Pin the short-SHA tag instead of `latest` when you want a
+# deploy to name one specific build.
+[build]
+  image = "ghcr.io/kocicjelena/mcp-py:latest"
+
+[env]
+  ENVIRONMENT = "production"
+  PORT = "7860"
+
+  # This container owns its model server — there is no host Ollama here, unlike
+  # the laptop. host:port, never a URL: start.sh builds "http://${OLLAMA_HOST}/…"
+  # itself, and a scheme here produced "http://http://…" and a container that
+  # died reporting Ollama was not ready. It strips one now; do not add one back.
+  MANAGE_OLLAMA = "1"
+  OLLAMA_HOST = "127.0.0.1:11434"
+
+  # There is no chat model in this image — only nomic-embed-text, because a
+  # generation model is gigabytes and unusable on a shared vCPU. So embedding is
+  # local and free, and generation is Claude on the visitor's own key.
+  DEFAULT_CHAT_PROVIDER = "claude"
+  ALLOW_APP_KEY_FALLBACK = "false"
+  USER_ANTHROPIC_KEYS = "true"
+
+  # On the volume, not in the container's own filesystem. The image already
+  # says this; it is repeated because getting it wrong is silent — the app
+  # works, and every restart starts from an empty corpus.
+  DATA_DIR = "/data"
+  SQLITE_PATH = "/data/rag.db"
+
+# The database and its vector index live in one SQLite file, so this single
+# mount is the entire application state. A volume binds the app to one machine
+# in one region — which is correct here rather than a limitation: SQLite has one
+# writer, and "never more than one replica" is a hard rule, not a tuning choice.
+[[mounts]]
+  source = "rag_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 7860
+  force_https = true
+
+  # Deliberately NOT scaling to zero, for the trial at least.
+  #
+  # The container boots in under ten seconds on the laptop (Ollama 1s, API 3s),
+  # so a cold start would not be terrible — but fly has to start the machine
+  # first, and the first thing a visitor to a demo should meet is the app, not a
+  # spinner. Flip auto_stop_machines to "stop" once the demo is not being shown
+  # to anyone, and the machine costs nothing while it sleeps.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "60s"   # start.sh waits on Ollama and the API before this can pass
+    method = "GET"
+    path = "/"
+
+[[vm]]
+  # Measured on the laptop, 2026-08-02: idle 185 MB, peak 475 MB while
+  # embedding. 512 MB would leave 37 MB of headroom with Next.js and SQLite
+  # still to serve, which is not a margin. 1 GB is the smallest honest answer.
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+  # Cheap insurance rather than a plan. Embedding is the spiky part, and a
+  # machine that swaps for a second is better than one the kernel kills.
+  swap_size_mb = 512
