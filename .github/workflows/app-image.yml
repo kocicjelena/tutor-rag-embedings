@@ -75,14 +75,62 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── Docker Hub, as a second destination ──────────────────────────────
+      #
+      # Jelena's ask, 2026-08-02, and her reason is the interesting one: she
+      # *likes* that Docker Hub rate-limits anonymous pulls. That is a fair
+      # reading — a public image with no ceiling is free compute for anyone who
+      # finds it, and a limit is a brake nobody has to maintain. GHCR stays the
+      # primary because the Space and `fly deploy --image` must pull it
+      # unmetered; Docker Hub is the copy under the name people recognise.
+      #
+      # Optional by construction. With no DOCKERHUB_TOKEN secret the job skips
+      # both steps and publishes to GHCR exactly as before, rather than failing
+      # a build over a destination that was never configured.
+      - name: Is Docker Hub configured?
+        id: hub
+        env:
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          USER: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          if [ -n "${TOKEN}" ] && [ -n "${USER}" ]; then
+            echo "enabled=true"  >> "$GITHUB_OUTPUT"
+            echo "repo=docker.io/${USER}/mcp-py" >> "$GITHUB_OUTPUT"
+            echo "Docker Hub: will publish to docker.io/${USER}/mcp-py"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Docker Hub: not configured — GHCR only. Add DOCKERHUB_USERNAME"
+            echo "and DOCKERHUB_TOKEN as repository secrets to turn this on."
+          fi
+
+      - name: Log in to Docker Hub
+        if: steps.hub.outputs.enabled == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Work out the tags
         id: tags
+        env:
+          EXTRA: ${{ inputs.tag }}
+          HUB_REPO: ${{ steps.hub.outputs.repo }}
         run: |
+          # An explicit `if` rather than `[ -n "$X" ] && echo`. The && form
+          # returns non-zero when the test fails, and every step here runs
+          # under `bash -e` — bash happens to tolerate it in an AND-OR list,
+          # which is exactly the kind of "happens to work" that breaks on a
+          # runner image change.
           {
             echo "list<<EOF"
             echo "${IMAGE}:latest"
             echo "${IMAGE}:${GITHUB_SHA::7}"
-            [ -n "${{ inputs.tag }}" ] && echo "${IMAGE}:${{ inputs.tag }}"
+            if [ -n "${EXTRA}" ]; then echo "${IMAGE}:${EXTRA}"; fi
+            if [ -n "${HUB_REPO}" ]; then
+              echo "${HUB_REPO}:latest"
+              echo "${HUB_REPO}:${GITHUB_SHA::7}"
+              if [ -n "${EXTRA}" ]; then echo "${HUB_REPO}:${EXTRA}"; fi
+            fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -144,13 +192,24 @@ jobs:
           tags: ${{ steps.tags.outputs.list }}
           cache-from: type=gha
 
-      - name: Remember to make the package public
+      - name: What was published, and the one manual step
+        env:
+          HUB_REPO: ${{ steps.hub.outputs.repo }}
         run: |
           echo "Published:"
           echo "  ${IMAGE}:latest"
           echo "  ${IMAGE}:${GITHUB_SHA::7}"
+          if [ -n "${HUB_REPO}" ]; then
+            echo "  ${HUB_REPO}:latest"
+            echo "  ${HUB_REPO}:${GITHUB_SHA::7}"
+          fi
           echo
           echo "GHCR packages are PRIVATE by default. Until this one is public,"
           echo "'fly deploy --image' and anonymous 'docker pull' both fail with"
           echo "a 'denied' that reads like a typo in the image name:"
-          echo "  github.com?tab=packages -> mcp-py -> Package settings -> Change visibility -> Public"
+          echo "  github.com?tab=packages -> mcp-py -> Package settings"
+          echo "    -> Change visibility -> Public"
+          echo
+          echo "Docker Hub repositories created by a push are PUBLIC by default,"
+          echo "which is the opposite convention. Check it is what you want:"
+          echo "  hub.docker.com -> mcp-py -> Settings -> Visibility"
