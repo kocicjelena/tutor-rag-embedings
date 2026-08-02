@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from "react";
+import SignIn from "@/components/SignIn";
 import { useContextActions, useContextState } from "@/context/GlobalContext";
 import { useLearningTutor } from "@/hooks/useLearningTutor";
 import { ChatComposer } from "./ChatComposer";
@@ -19,14 +20,37 @@ export default function TutorPage() {
   // The same catalogue the home page uses, fetched once for the whole app. It used to be
   // fetched again here, with its own copy of the "prefer the default, fall back to what is
   // available" rule — so choosing Claude on `/` and walking to `/tutor` silently reset it.
-  const { providers } = useContextState();
-  const { loadProviders, setProvider, setModel } = useContextActions();
+  const { providers, session } = useContextState();
+  const { loadProviders, setProvider, setModel, checkSession } = useContextActions();
 
   useEffect(() => {
     if (!providers.loaded) void loadProviders();
   }, [providers.loaded, loadProviders]);
 
+  useEffect(() => {
+    void checkSession();
+  }, [checkSession]);
+
   const indexedLessons = tutor.stats?.interactions ?? tutor.learningModel.interactions;
+
+  // Signed out, every request this page makes returns 401 and the page shows
+  // an empty tutor with no explanation — which reads as broken rather than as
+  // locked. `/` has guarded on this since the store existed; this one never
+  // did, because nothing here had a reason to look at the session until
+  // registration made signing in something a visitor actually does.
+  if (!session.signedIn) {
+    return (
+      <div className="shell">
+        <header className="masthead">
+          <div>
+            <h1>AI Learning Tutor</h1>
+            <div className="sub">Sign in, or create an account, to start learning</div>
+          </div>
+        </header>
+        <SignIn />
+      </div>
+    );
+  }
 
   return (
     <div className="shell">

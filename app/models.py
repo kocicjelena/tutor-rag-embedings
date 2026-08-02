@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import computed_field
+from pydantic import EmailStr, computed_field
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -42,6 +42,30 @@ class User(UserBase, table=True):
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=40)
+
+
+class UserRegister(SQLModel):
+    """Public self-registration. **Must not inherit `UserBase`.**
+
+    This is hard rule #4 in a second place, and the reasoning is identical:
+    `UserBase` carries `is_superuser` and `is_active`, so a public route that
+    accepted `UserCreate` would let anyone create themselves an administrator
+    by adding one field to the request body. `UserUpdateMe` exists for exactly
+    this reason on the update side; this is the create side.
+
+    Declared field by field, deliberately. Inheriting and overriding is how the
+    original defect happened — a field added to the base later would silently
+    reappear here. A test asserts this class has no privilege fields, and
+    another posts `is_superuser: true` at the route and checks it was ignored.
+
+    `email` is the credential; the account's public handle is derived from it
+    (`app/core/identity.py`) rather than chosen, which is what makes the same
+    address always land on the same identity.
+    """
+
+    email: EmailStr = Field(max_length=255)
+    password: str = Field(min_length=8, max_length=40)
+    full_name: str | None = Field(default=None, max_length=255)
 
 
 class UserUpdateMe(SQLModel):
